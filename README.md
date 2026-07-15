@@ -1,5 +1,9 @@
 # Buddy — landing page
 
+> **Pivot in progress (2026-07-14):** this site is being repositioned as **Kuma**,
+> a WIMP-branded release. See **[KUMA-WIMP-PLAN.md](KUMA-WIMP-PLAN.md)** for the
+> full plan (new home on `wimpdecaf.com`, WIMP Ghost, pay-what-you-want funnel).
+
 The marketing site for [Buddy](https://github.com/whale/buddy), the calm macOS
 menu-bar focus app. One self-contained `index.html`, no build step.
 
