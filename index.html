@@ -1042,10 +1042,15 @@ function buildMobile(){
     m.appendChild(sec);
   });
 
-  // mobile sections are static — data-go buttons just scroll to the next section
+  // mobile sections are static — data-go buttons scroll to the next section.
+  // Manual math, not scrollIntoView: iOS Safari has ignored scroll-margin
+  // during smooth scrollIntoView in some versions, which overshot the heading
+  // under the sticky icon. Computing the target ourselves works everywhere.
   m.querySelectorAll('.btn[data-go],[data-go].btn').forEach(b=>{
     b.onclick=e=>{ e.preventDefault(); const sec=b.closest('.msec');
-      sec && sec.nextElementSibling && sec.nextElementSibling.scrollIntoView({behavior:'smooth'}); };
+      const next=sec && sec.nextElementSibling; if(!next) return;
+      const stickH=stick.offsetHeight;
+      scrollTo({top:next.getBoundingClientRect().top+scrollY-stickH, behavior:'smooth'}); };
   });
 }
 /* mobile signup → morph the Kinda dope section into Boomski in place + wink sticky icon */
