@@ -138,9 +138,10 @@ p{text-wrap:pretty}
    Position tracked per frame from the live addrow rect, so it rides the drawer
    slide-in, list re-renders, and resizes. Desktop only — hidden with the drawer
    on mobile. z-index above the drawer (50); pointer-events off so it never blocks. */
-#taskArrow{position:fixed;left:0;top:0;z-index:60;pointer-events:none;
+#taskArrow{color:#000;transition:color .2s ease;position:fixed;left:0;top:0;z-index:60;pointer-events:none;
   opacity:0;transition:opacity .35s var(--ease-out)}
 #taskArrow.show{opacity:1}
+#taskArrow.hot{color:var(--red)}   /* escalation: arrow blushes with the drawer */
 /* elongate 4px toward the card and back — tail stays put, head reaches.
    Animated on the inner <g> (scaleX from the left edge) because JS owns the
    outer svg's transform for positioning. 66px × 1.0605 ≈ +4px. */
@@ -372,7 +373,7 @@ p{text-wrap:pretty}
 
 <!-- exact vector from Figma node 95:8 (Vector 326) — do not redraw -->
 <svg id="taskArrow" aria-hidden="true" width="66.2372" height="31.5929" viewBox="0 0 66.2372 31.5929" fill="none" xmlns="http://www.w3.org/2000/svg" overflow="visible">
-  <g><path d="M65.444 15.8858H0M50.3513 0.707107L65.53 15.8858M50.3513 30.8858L65.5301 15.7071" stroke="#000" stroke-width="2"/></g>
+  <g><path d="M65.444 15.8858H0M50.3513 0.707107L65.53 15.8858M50.3513 30.8858L65.5301 15.7071" stroke="currentColor" stroke-width="2"/></g>
 </svg>
 
 <aside id="drawer" data-open="0">
@@ -908,6 +909,7 @@ function drawTaskArrow(){
   const x=a.left-ARROW_GAP-ARROW_W, y=a.top+a.height/2-ARROW_H/2;
   if(x < b.right+24){ taskArrow.classList.remove('show'); return; }   // too cramped — skip it
   taskArrow.style.transform=`translate(${x}px, ${y}px)`;
+  taskArrow.classList.toggle('hot', drawer.classList.contains('lvl1')||drawer.classList.contains('lvl2'));
   taskArrow.classList.add('show');
 }
 (function arrowLoop(){ drawTaskArrow(); requestAnimationFrame(arrowLoop); })();
