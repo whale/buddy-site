@@ -130,6 +130,14 @@ p:last-of-type{margin-bottom:0}
 .ok{display:flex;align-items:center;gap:calc(12px*var(--s));font-size:calc(var(--body)*1px*var(--s));color:var(--dim)}
 .ok svg{width:calc(20px*var(--s));height:calc(20px*var(--s));color:#000}
 
+/* gray arrow (Figma 95:8) pointing at the drawer's Add + row on slide 2.
+   Position tracked per frame from the live addrow rect, so it rides the drawer
+   slide-in, list re-renders, and resizes. Desktop only — hidden with the drawer
+   on mobile. z-index above the drawer (50); pointer-events off so it never blocks. */
+#taskArrow{position:fixed;left:0;top:0;z-index:60;pointer-events:none;
+  opacity:0;transition:opacity .35s var(--ease-out)}
+#taskArrow.show{opacity:1}
+
 @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .enter,.leave{animation:none} }
 
 /* ================= drawer — native size, mirrors the Mac build ================= */
@@ -288,29 +296,29 @@ p:last-of-type{margin-bottom:0}
 
   <div id="type">
     <div class="slot" id="slotHead">
-      <h1 class="blk hd" data-i="0">Hey, this is buddy.</h1>
-      <h1 class="blk hd" data-i="1">Phew! It's for today's stuff only.</h1>
-      <h1 class="blk hd" data-i="2">There when you need him, hidden when you don't.</h1>
+      <h1 class="blk hd" data-i="0">Hey, this is Buddy.</h1>
+      <h1 class="blk hd" data-i="1">Phew! Just for today.</h1>
+      <h1 class="blk hd" data-i="2">Buddy is there when you need him. Hidden when you don't.</h1>
       <h1 class="blk hd" data-i="3">Kinda dope.</h1>
       <h1 class="blk hd" data-i="4">Boomski.</h1>
     </div>
     <div id="ruleWrap"><hr id="rule"></div>
     <div class="slot" id="slotBody">
       <div class="blk bd" data-i="0">
-        <p>Buddy is a micro-do-list for distraction prone <span class="tip" data-tip="You notice everything. That's the gift and the problem.">super-noticers</span> who need the cutest, easiest to use, constrained task list <span class="tip" data-tip="Bold claim. We're comfortable with it.">in history</span>.</p>
-        <button class="btn" data-go="1">Show me please <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <p>Buddy is a micro-do-list for distraction-prone <span class="tip" data-tip="You notice everything. That's the gift and the problem.">super-noticers</span>. It's the cutest, easiest-to-use, constrained task list <span class="tip" data-tip="Bold claim. We're comfortable with it.">in history</span>.</p>
+        <button class="btn" data-go="1">Show me, please <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       </div>
       <div class="blk bd" data-i="1">
-        <p>To hell with big list energy, six things is the limit because size matters.</p>
-        <p>And Buddy lets know when you're getting too ambitious.</p>
-        <button class="nudge" data-go="2">Add tasks to see for yourself. <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <p>To hell with big list energy. Six things is the limit because size matters.</p>
+        <p>Buddy lets you know when you're getting too ambitious.</p>
+        <button class="btn" id="addTaskBtn">Add a task!</button>
       </div>
       <div class="blk bd" data-i="2">
-        <p>Tucked out of the way on the right of your screen, till you forget what you were doing, then you just tap that right side and — whammo — relief in reminder form.</p>
-        <button class="btn" data-go="3">Okay hide buddy</button>
+        <p>Tucked out of the way on the right of your screen until you forget what you were doing. Then just tap the right side and — whammo — relief in reminder form. You're welcome.</p>
+        <button class="btn" data-go="3">Okay, hide Buddy</button>
       </div>
       <div class="blk bd" data-i="3">
-        <p>If this is your thing, sign up for the beta and I'll send ya an invite. Want it faster? Move up in the list when post about my side project <span class="tip" data-tip="Decaf coffee for people with too much going on. Yes, really.">Wimp Decaf</span> on social, in an email to 10 people you think you'd like better if they substituted their LFG energy for some decaf vibes.</p>
+        <p>If this is your thing, sign up and I'll send you a beta invite. Want it sooner? Post about my side project <span class="tip" data-tip="Decaf coffee for people with too much going on. Yes, really.">Wimp Decaf</span> somewhere public and I'll bump you up the list. Bribery, but decaffeinated.</p>
         <form class="form" onsubmit="event.preventDefault();window.__signup&&window.__signup()">
           <input class="field" type="email" placeholder="Email address" required>
           <button class="btn" type="submit">Sign me up</button>
@@ -325,6 +333,11 @@ p:last-of-type{margin-bottom:0}
     </div>
   </div>
 </div>
+
+<!-- exact vector from Figma node 95:8 (Vector 326) — do not redraw -->
+<svg id="taskArrow" aria-hidden="true" width="66.2372" height="31.5929" viewBox="0 0 66.2372 31.5929" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M65.444 15.8858H0M50.3513 0.707107L65.53 15.8858M50.3513 30.8858L65.5301 15.7071" stroke="#D9D9D9" stroke-width="2"/>
+</svg>
 
 <aside id="drawer" data-open="0">
   <div class="bcard">
@@ -513,6 +526,7 @@ function render(){
   if(justAddedId){ /* consumed by startEdit */ }
   donezoEnterId=null;
   if(sheetOpen) renderSheet();
+  maybeAdvanceAfterFirstAdd();
 }
 
 function buildRow(it){
@@ -749,6 +763,7 @@ function updateIcon(){ mark.classList.toggle('winking', shown===BOOMSKI); }
 
 function goToSlide(slide){
   scrollSlide=slide;
+  slide1Base = slide===1 ? realCount() : -1;
   applyDrawer(slide);
   [...dots.children].forEach((d,n)=>d.classList.toggle('on',n===slide));
   const want=(state.signedUp && slide===SIGNUP_SLIDE) ? BOOMSKI : slide;
@@ -770,6 +785,42 @@ window.__signup=signup;
 
 function go(i){ scrollTo({top:Math.max(0,Math.min(NSCROLL-1,i))*innerHeight, behavior:'smooth'}); }
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(+b.dataset.go));
+
+/* "Add a task!" starts a real add in the drawer; the arrow shows where it lands */
+document.getElementById('addTaskBtn').addEventListener('click',addAndEdit);
+
+/* ---- gray pointer arrow → drawer's Add + row ----
+   Live-tracked in rAF (two rect reads per frame — negligible) so it rides the
+   drawer's slide-in transition and any list reflow without event plumbing.
+   Geometry from Figma: 66×32 arrow, 34px gap to the card's left edge. */
+const taskArrow=document.getElementById('taskArrow');
+const ARROW_W=66, ARROW_H=32, ARROW_GAP=34;
+function drawTaskArrow(){
+  const btn=document.getElementById('addTaskBtn'), row=drawer.querySelector('.addrow');
+  if(scrollSlide!==1 || shown!==1 || isMobile() || !btn || !row || drawer.dataset.open!=='1'){
+    taskArrow.classList.remove('show'); return;
+  }
+  const b=btn.getBoundingClientRect(), a=row.getBoundingClientRect();
+  const x=a.left-ARROW_GAP-ARROW_W, y=a.top+a.height/2-ARROW_H/2;
+  if(x < b.right+24){ taskArrow.classList.remove('show'); return; }   // too cramped — skip it
+  taskArrow.style.transform=`translate(${x}px, ${y}px)`;
+  taskArrow.classList.add('show');
+}
+(function arrowLoop(){ drawTaskArrow(); requestAnimationFrame(arrowLoop); })();
+
+/* ---- first task added on slide 1 → auto-advance ----
+   Baseline is the count of real (non-empty, non-done) tasks when slide 1 opens;
+   the demo seeds 3, so we watch for growth, not for "any task". The empty row
+   addAndEdit creates doesn't count until it's committed with text on blur. */
+let slide1Base=-1;
+const realCount=()=>state.items.filter(it=>!isDonezo(it)&&it.text&&it.text.trim()).length;
+function maybeAdvanceAfterFirstAdd(){
+  if(scrollSlide!==1 || slide1Base<0 || editingId) return;
+  if(realCount()>slide1Base){
+    slide1Base=-1;
+    setTimeout(()=>{ if(scrollSlide===1) go(2); }, 650);   // beat to see it land, then advance
+  }
+}
 
 let tick=false;
 addEventListener('scroll',()=>{ if(tick) return; tick=true; requestAnimationFrame(()=>{ tick=false; onScrollPos(); }); },{passive:true});
@@ -802,6 +853,8 @@ function buildMobile(){
     const hr=document.createElement('hr'); hr.className='mrule';
     const body=s.body; body.className='mbody'; body.style.cssText='';
     body.querySelectorAll('p').forEach(p=>p.classList.add('mp'));
+    // no live drawer on mobile — "Add a task!" (and its arrow) are desktop-only
+    body.querySelectorAll('#addTaskBtn').forEach(el=>el.remove());
     body.querySelectorAll('.btn,.nudge,.form,.ok').forEach(el=>el.style.cssText='');
     sec.append(h,hr,body);
     if(s.card) sec.appendChild(buildMobileCard());
@@ -886,6 +939,7 @@ function applyTune(){
   if(active>=0){ slotHead.style.height=heads[active].offsetHeight+'px'; slotBody.style.height=bodies[active].offsetHeight+'px'; }
 }
 window.syncReadout=function(){
+  if(!document.getElementById('c_h1')) return;   // tune panel removed in production
   const s=getComputedStyle(document.documentElement).getPropertyValue('--s').trim();
   const eff=Math.round((parseFloat(document.getElementById('c_h1').value)||48)*(parseFloat(s)||1));
   const mob=isMobile();
