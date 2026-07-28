@@ -1,0 +1,58 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e8]:
+    - img "Buddy" [ref=f1e9] [cursor=pointer]
+    - generic [ref=f1e21]:
+      - heading "Phew! Just for today." [level=1] [ref=f1e39]
+      - separator [ref=f1e25]
+      - generic [ref=f1e40]:
+        - paragraph [ref=f1e41]: To hell with big list energy. Six things is the limit because size matters.
+        - paragraph [ref=f1e42]: Go on — add something. Anything. That thing you keep re-remembering.
+        - button "Add a task!" [ref=f1e43] [cursor=pointer]
+  - complementary [ref=f1e44]:
+    - generic [ref=f1e45]:
+      - generic [ref=f1e46]:
+        - generic [ref=f1e47]:
+          - button "Pin open" [ref=f1e48] [cursor=pointer]
+          - button "Future" [ref=f1e51] [cursor=pointer]
+        - button "Buddy" [ref=f1e54] [cursor=pointer]
+      - generic [ref=f1e57]:
+        - generic [ref=f1e58]: "24"
+        - generic [ref=f1e59]:
+          - generic [ref=f1e60]: Thursday
+          - generic [ref=f1e61]: November
+    - generic [ref=f1e66]:
+      - generic [ref=f1e67]:
+        - generic [ref=f1e124]:
+          - generic [ref=f1e125]: Water the plants
+          - generic [ref=f1e126]:
+            - button "Mark done" [ref=f1e127] [cursor=pointer]
+            - button "Move to Future" [ref=f1e130] [cursor=pointer]
+            - button "Remove" [ref=f1e134] [cursor=pointer]
+        - generic [ref=f1e137]:
+          - generic [ref=f1e138]: Reply to Sam
+          - generic [ref=f1e139]:
+            - button "Mark done" [ref=f1e140] [cursor=pointer]
+            - button "Move to Future" [ref=f1e143] [cursor=pointer]
+            - button "Remove" [ref=f1e147] [cursor=pointer]
+        - generic [ref=f1e150]:
+          - generic [ref=f1e151]: Ship the thing
+          - generic [ref=f1e152]:
+            - button "Mark done" [ref=f1e153] [cursor=pointer]
+            - button "Move to Future" [ref=f1e156] [cursor=pointer]
+            - button "Remove" [ref=f1e160] [cursor=pointer]
+        - generic [ref=f1e163]:
+          - generic [ref=f1e164]: Try Buddy out
+          - generic [ref=f1e165]:
+            - button "Mark done" [ref=f1e166] [cursor=pointer]
+            - button "Move to Future" [ref=f1e169] [cursor=pointer]
+            - button "Remove" [ref=f1e173] [cursor=pointer]
+        - generic [ref=f1e177] [cursor=pointer]:
+          - generic [ref=f1e178]: Add
+          - generic [ref=f1e179]: +
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - button "Future"
+              - button "Done"
+            - button "Close"

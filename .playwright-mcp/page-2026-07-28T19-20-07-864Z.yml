@@ -1,0 +1,57 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e8]:
+    - img "Buddy" [ref=f3e9] [cursor=pointer]
+    - generic [ref=f3e21]:
+      - heading "Hey, this is Buddy." [level=1] [ref=f3e23]
+      - separator [ref=f3e25]
+      - generic [ref=f3e27]:
+        - paragraph [ref=f3e28]: Buddy is a micro-do-list for distraction-prone super-noticers You notice everything. That's the gift and the problem. . It's the cutest, easiest-to-use, constrained task list in history Bold claim. We're comfortable with it. .
+        - button "Show me, please" [ref=f3e29] [cursor=pointer]
+  - complementary:
+    - generic:
+      - generic:
+        - generic:
+          - button "Pin open"
+          - button "Future"
+        - button "Buddy"
+      - generic:
+        - generic:
+          - generic: "24"
+          - generic:
+            - generic: Thursday
+            - generic: November
+    - generic:
+      - generic:
+        - generic:
+          - generic: Find wallet (it’s somewhere “safe”)
+          - generic:
+            - button "Mark done"
+            - button "Move to Future"
+            - button "Remove"
+        - generic:
+          - generic: Ask wife what I forgot to write down
+          - generic:
+            - button "Mark done"
+            - button "Move to Future"
+            - button "Remove"
+        - generic:
+          - generic: Rewash the laundry I abandoned in the washer
+          - generic:
+            - button "Mark done"
+            - button "Move to Future"
+            - button "Remove"
+        - generic:
+          - generic:
+            - generic: Add
+            - generic: +
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - button "Future"
+              - button "Done"
+            - button "Close"
+    - generic:
+      - button "Super Noticer mode"
+      - button "Walter White mode"
+      - button "Thunder Cats mode"

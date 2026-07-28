@@ -1,0 +1,105 @@
+- generic [ref=f1e3]:
+  - img "Buddy" [ref=f1e5]
+  - generic [ref=f1e17]:
+    - heading "Hey, this is Buddy." [level=2] [ref=f1e18]
+    - separator [ref=f1e19]
+    - generic [ref=f1e20]:
+      - paragraph [ref=f1e21]: Buddy is a micro-do-list for distraction-prone super-noticers You notice everything. That's the gift and the problem. . It's the cutest, easiest-to-use, constrained task list in history Bold claim. We're comfortable with it. .
+      - button "Show me, please" [ref=f1e22] [cursor=pointer]
+  - generic [ref=f1e25]:
+    - heading "Phew! Just for today." [level=2] [ref=f1e26]
+    - separator [ref=f1e27]
+    - generic [ref=f1e28]:
+      - paragraph [ref=f1e29]: To hell with big list energy. Six things is the limit because size matters.
+      - paragraph [ref=f1e30]: Go on — add something. Anything. That thing you shouldn't forget to do.
+    - generic [ref=f1e31]:
+      - generic [ref=f1e32]:
+        - generic [ref=f1e33]:
+          - generic [ref=f1e34]:
+            - button "Pin open" [ref=f1e35] [cursor=pointer]
+            - button "Future" [ref=f1e38] [cursor=pointer]
+          - button "Buddy" [ref=f1e41] [cursor=pointer]
+        - generic [ref=f1e44]:
+          - generic [ref=f1e45]: "24"
+          - generic [ref=f1e46]:
+            - generic [ref=f1e47]: Thursday
+            - generic [ref=f1e48]: November
+      - generic [ref=f1e53]:
+        - generic [ref=f1e54]:
+          - generic [ref=f1e207]:
+            - generic [ref=f1e208]: Find wallet (it’s somewhere “safe”)
+            - generic [ref=f1e209]:
+              - button "Mark done" [ref=f1e210] [cursor=pointer]
+              - button "Move to Future" [ref=f1e213] [cursor=pointer]
+              - button "Remove" [ref=f1e217] [cursor=pointer]
+          - generic [ref=f1e220]:
+            - generic [ref=f1e221]: Ask wife what I forgot to write down
+            - generic [ref=f1e222]:
+              - button "Mark done" [ref=f1e223] [cursor=pointer]
+              - button "Move to Future" [ref=f1e226] [cursor=pointer]
+              - button "Remove" [ref=f1e230] [cursor=pointer]
+          - generic [ref=f1e233]:
+            - generic [ref=f1e234]: Rewash the laundry I abandoned in the washer
+            - generic [ref=f1e235]:
+              - button "Mark done" [ref=f1e236] [cursor=pointer]
+              - button "Move to Future" [ref=f1e239] [cursor=pointer]
+              - button "Remove" [ref=f1e243] [cursor=pointer]
+          - generic [ref=f1e246]:
+            - generic [ref=f1e247]: Try Buddy on my phone
+            - generic [ref=f1e248]:
+              - button "Mark done" [ref=f1e249] [cursor=pointer]
+              - button "Move to Future" [ref=f1e252] [cursor=pointer]
+              - button "Remove" [ref=f1e256] [cursor=pointer]
+          - generic [ref=f1e260] [cursor=pointer]:
+            - generic [ref=f1e261]: Add
+            - generic [ref=f1e262]: +
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - button "Future"
+                - button "Done"
+              - button "Close"
+  - generic [ref=f1e98]:
+    - heading "Feeling ambitious?" [level=2] [ref=f1e99]
+    - separator [ref=f1e100]
+    - paragraph [ref=f1e102]: Try it. Add a 5th thing and Buddy blushes. See what happens when you add a 6th! That's it. Can't add more. Limits are our friends.
+    - generic [ref=f1e104]:
+      - generic [ref=f1e105]: Water the plants
+      - generic [ref=f1e106]: Reply to Sam
+      - generic [ref=f1e107]: Ship the thing
+      - generic [ref=f1e108]: Call the bank
+      - generic [ref=f1e109]: Fold the laundry
+      - generic [ref=f1e110]: One more thing
+      - generic [ref=f1e111]: That's six. Buddy says no.
+  - generic [ref=f1e112]:
+    - heading "Wanna have a done party?" [level=2] [ref=f1e113]
+    - separator [ref=f1e114]
+    - generic [ref=f1e115]:
+      - paragraph [ref=f1e116]: Hover a task and check it off. Party time. Everything you finish stacks up in today's done list. Feels good to spy on what you have done!
+      - button "Next" [ref=f1e117] [cursor=pointer]
+    - generic [ref=f1e121]:
+      - generic [ref=f1e122]:
+        - generic [ref=f1e123]: Donezo
+        - generic [ref=f1e124]: Water the plants
+      - generic [ref=f1e125]:
+        - generic [ref=f1e126]: Sorted
+        - generic [ref=f1e127]: Reply to Sam
+      - generic [ref=f1e128]:
+        - generic [ref=f1e129]: Ta-Da
+        - generic [ref=f1e130]: Ship the thing
+  - generic [ref=f1e131]:
+    - heading "Buddy is there when you need him. Hidden when you don't." [level=2] [ref=f1e132]
+    - separator [ref=f1e133]
+    - generic [ref=f1e134]:
+      - paragraph [ref=f1e135]: Tucked out of the way on the right of your screen until you forget what you were doing. Then just tap the right side and — whammo — relief in reminder form. You're welcome.
+      - button "Okay, hide Buddy" [ref=f1e136] [cursor=pointer]
+  - generic [ref=f1e137]:
+    - heading "K. Byeee!" [level=2] [ref=f1e138]
+    - separator [ref=f1e139]
+    - generic [ref=f1e140]:
+      - paragraph [ref=f1e141]: If this is your thing, sign up and I'll send you a beta invite. Want it sooner? Post about my side project Wimp Decaf Decaf coffee for people with too much going on. Yes, really. somewhere public and I'll bump you up the list. Bribery, but decaffeinated.
+      - generic [ref=f1e142]:
+        - textbox "Email address" [ref=f1e143]
+        - button "Sign me up" [ref=f1e144] [cursor=pointer]
+  - img "Buddy" [ref=f1e146]

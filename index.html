@@ -297,16 +297,21 @@ p{text-wrap:pretty}
   .mcard .dwx{width:42px;height:42px}
   .mcard .dhead{padding:20px 24px}
   .mcard .ddate{padding:24px 24px}
-  /* step visuals — engine-rendered screenshots, checked into assets/img.
-     Regenerate via Playwright when the drawer design or seed copy changes. */
+  /* step visual — engine-rendered screenshot, checked into assets/img.
+     Regenerate via Playwright when the drawer design or seed copy changes.
+     Static on purpose: the app is not editable on mobile. */
   .mshot{width:100%;display:block;margin-top:24px;border:1px solid #e5e5e5;border-radius:24px}
-  .mshot-red{border:none}   /* the red card carries its own weight */
 
-  /* footer winking icon (thinner stroke) — near full content-width, per Figma (384/400).
-     Cropped at the page bottom edge (Figma 69:1242): the face runs off-screen,
-     so the section clips it instead of padding under it. */
-  .mfoot{padding:96px 0 0;overflow:hidden}
-  .mfoot svg{width:88%;max-width:340px;height:auto;display:block;margin-bottom:-12%}
+  /* feature list — one beat per hairline row */
+  .mfeat{font-size:calc(var(--mbody)*1px);line-height:1.35;color:var(--dim);letter-spacing:-0.02em;margin:0;padding:20px 0}
+  .mfeat+.mfeat{border-top:1px solid var(--line)}
+
+  /* signup: the sticky icon takes over the celebration — winks and tilts */
+  #mStickIcon{transition:transform .45s var(--ease-out)}
+  #mStickIcon.winking{transform:rotate(-8deg)}
+
+  /* page has a fixed sticky header — button scrolls land headings BELOW it */
+  .msec{scroll-margin-top:var(--stickH,92px)}
 }
 </style>
 </head>
@@ -983,41 +988,51 @@ function buildMobile(){
     clearTimeout(tip._tipT); tip._tipT=setTimeout(()=>tip.classList.remove('tip-on'), 2000);
   });
 
-  // sections 0..5 only — Boomski (6) is the signup-success variant of section 5, not its own section
-  const secs=[0,1,2,3,4,5].map(i=>({idx:i, h:heads[i].textContent, body:bodies[i].cloneNode(true)}));
-
-  // walkthrough copy — desktop copy invites interaction; mobile narrates it instead
-  const MCOPY={
-    1:'<p class="mp">To hell with big list energy. Six things is the limit because size matters.</p>',
-    2:'<p class="mp">Add a fifth thing and Buddy blushes. A sixth? Full red. A seventh isn\'t happening. Limits are our friends.</p>',
-    3:'<p class="mp">Check something off: confetti, a little <em>Donezo!</em>, and a done pile that stacks up where you can admire it.</p>'
-  };
-  // engine-rendered stills per step (assets/img, regenerate via Playwright)
-  const MIMG={
-    1:['assets/img/step-add.png','Buddy holding a short list of today\'s tasks'],
-    2:['assets/img/step-red.png','Buddy at six tasks — the whole card turns red'],
-    3:['assets/img/step-done.png','Checked-off tasks piling up as Donezo rows'],
-    4:['assets/img/step-hidden.png','Buddy tucked along the right edge of the screen']
-  };
+  // mobile is FOUR sections: hero → the app (one still) → feature list → signup.
+  // Desktop's middle slides collapse into the feature rows.
+  const secs=[
+    {idx:0, h:heads[0].textContent, body:bodies[0].cloneNode(true)},
+    {idx:1, h:heads[1].textContent, body:bodies[1].cloneNode(true)},
+    {feat:true, h:'Looks cool. What’s it do?'},
+    {idx:SIGNUP_SLIDE, h:'Sign up to get Buddy', body:bodies[SIGNUP_SLIDE].cloneNode(true)}
+  ];
+  // one feature per hairline row — same beats as the desktop slides
+  const FEATURES=[
+    'Six tasks, max. Buddy holds the line so you don’t have to.',
+    'Add a fifth thing and Buddy blushes. A sixth? Full red. A seventh isn’t happening. Limits are our friends.',
+    'Check something off: confetti, a little <em>Donezo!</em>, and a done pile that stacks up where you can admire it.',
+    'Fresh list every morning — yesterday clears itself out while you sleep.',
+    'Not-today things nap in the Future list until you’re ready for them.',
+    'Tucked out of the way on the right of your screen until you forget what you were doing. Tap the right side and — whammo — relief in reminder form.'
+  ];
   let mKindaSec=null;
   secs.forEach(s=>{
     const sec=document.createElement('div'); sec.className='msec'+(s.idx===0?' mhero':'');
     const h=document.createElement('h2'); h.className='mh1'; h.textContent=s.h;
     const hr=document.createElement('hr'); hr.className='mrule';
+    if(s.feat){
+      const rows=document.createElement('div'); rows.className='mbody';
+      rows.innerHTML=FEATURES.map(f=>`<p class="mfeat">${f}</p>`).join('');
+      sec.append(h,hr,rows);
+      // the done party is real: confetti fires once when the features scroll into view
+      let fired=false;
+      new IntersectionObserver(es=>{ es.forEach(en=>{ if(en.isIntersecting&&!fired){ fired=true; fireConfetti(); } }); },{threshold:.25}).observe(sec);
+      m.appendChild(sec); return;
+    }
     const body=s.body; body.className='mbody'; body.style.cssText='';
     body.querySelectorAll('p').forEach(p=>p.classList.add('mp'));
     // no live drawer on mobile — the add buttons (and the arrow) are desktop-only
     body.querySelectorAll('#addTaskBtn,#addTaskBtn2').forEach(el=>el.remove());
     body.querySelectorAll('.btn,.nudge,.form,.ok').forEach(el=>el.style.cssText='');
     sec.append(h,hr,body);
-    // mobile is a walkthrough, not a demo: copy narrates, engine-rendered stills show
-    if(MCOPY[s.idx]){ body.querySelectorAll('p').forEach(p=>p.remove()); body.insertAdjacentHTML('afterbegin', MCOPY[s.idx]); }
-    if(MIMG[s.idx]){ const im=document.createElement('img');
-      im.className='mshot'+(s.idx===2?' mshot-red':''); im.loading='lazy';
-      im.src=MIMG[s.idx][0]; im.alt=MIMG[s.idx][1]; sec.appendChild(im); }
-    // the done party is real: confetti fires when this section scrolls into view
-    if(s.idx===3){ let fired=false;
-      new IntersectionObserver(es=>{ es.forEach(en=>{ if(en.isIntersecting&&!fired){ fired=true; fireConfetti(); } }); },{threshold:.4}).observe(sec); }
+    if(s.idx===1){
+      // narrated copy + one non-interactive engine still of the app
+      body.querySelectorAll('p').forEach(p=>p.remove());
+      body.insertAdjacentHTML('afterbegin','<p class="mp">To hell with big list energy. Six things is the limit because size matters.</p>');
+      const im=document.createElement('img'); im.className='mshot'; im.loading='lazy';
+      im.src='assets/img/step-add.png'; im.alt='Buddy holding a short list of today’s tasks';
+      sec.appendChild(im);
+    }
     if(s.idx===SIGNUP_SLIDE){
       mKindaSec={sec,h,body};
       const form=body.querySelector('.form');
@@ -1027,22 +1042,12 @@ function buildMobile(){
     m.appendChild(sec);
   });
 
-  // footer winking face — thinner stroke, from Figma node 69:1195
-  const foot=document.createElement('div'); foot.className='mfoot';
-  foot.innerHTML=FOOT_ICON; m.appendChild(foot);
-
   // mobile sections are static — data-go buttons just scroll to the next section
   m.querySelectorAll('.btn[data-go],[data-go].btn').forEach(b=>{
     b.onclick=e=>{ e.preventDefault(); const sec=b.closest('.msec');
       sec && sec.nextElementSibling && sec.nextElementSibling.scrollIntoView({behavior:'smooth'}); };
   });
 }
-const FOOT_ICON=`<svg viewBox="0 0 396 396" fill="none" aria-label="Buddy" role="img">
-  <path d="M390 144.24L262 6H48.6666C37.3507 6 26.4983 10.4952 18.4968 18.4968C10.4952 26.4983 6 37.3507 6 48.6666V347.333C6 358.649 10.4952 369.502 18.4968 377.503C26.4983 385.505 37.3507 390 48.6666 390H347.333C358.649 390 369.502 385.505 377.503 377.503C385.505 369.502 390 358.649 390 347.333V144.24Z" fill="#fff"/>
-  <path d="M112.667 219.333H112.88M283.333 219.333H283.547M390 144.24V347.333C390 358.649 385.505 369.502 377.503 377.503C369.502 385.505 358.649 390 347.333 390H48.6666C37.3507 390 26.4983 385.505 18.4968 377.503C10.4952 369.502 6 358.649 6 347.333V48.6666C6 37.3507 10.4952 26.4983 18.4968 18.4968C26.4983 10.4952 37.3507 6 48.6666 6H262L390 144.24Z" stroke="#000" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M154.824 275.656C154.824 275.656 171.891 304.669 197.491 304.669C225.225 304.669 240.158 275.656 240.158 275.656M98.7998 231.582L125.142 217.57M98.7998 203.59L125.142 217.602M297.056 232.542L270.714 218.53L297.056 204.55" stroke="#000" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M246.679 116.352L246.353 13.8545C246.34 9.60349 249.782 6.15015 254.033 6.15015H261.348C268.402 6.15015 275.143 9.0603 279.98 14.1937L381.638 122.076C387.009 127.776 390 135.312 390 143.144V146.95C390 151.192 386.562 154.63 382.32 154.63H285.078C263.918 154.63 246.746 137.512 246.679 116.352Z" fill="#FF4342" stroke="#000" stroke-width="12"/>
-</svg>`;
 /* mobile signup → morph the Kinda dope section into Boomski in place + wink sticky icon */
 function applyMobileBoomski(ref, icon, animate){
   ref.h.textContent = heads[BOOMSKI].textContent;            // "Boomski."
