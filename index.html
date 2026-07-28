@@ -265,9 +265,16 @@ p{text-wrap:pretty}
   body{overflow-x:clip}          /* clip (not hidden) — hidden breaks position:sticky */
   #mobileWrap{display:block}
   #mobile{max-width:520px;margin:0 auto;padding:0 24px;position:relative}   /* no bottom pad — the winking face crops at the page edge */
-  /* single icon, pinned at the top — does NOT repeat per section */
-  #mStick{position:sticky;top:0;z-index:10;padding:22px 0 14px;
-    background:linear-gradient(#fff 66%, rgba(255,255,255,0))}
+  /* single icon, pinned at the top — does NOT repeat per section.
+     FIXED (not sticky) + solid white: sticky panned out of view when the iOS
+     keyboard opened, and the old gradient let scrolled text bleed through and
+     show in the translucent status-bar zone. z-index above confetti (60) —
+     the celebration always bursts BEHIND the icon. #mStickSpace holds the
+     layout gap; a JS visualViewport pin keeps the bar in view over the keyboard. */
+  #mStick{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;
+    box-sizing:border-box;padding:22px 24px 14px;z-index:70;background:#fff}
+  #mStick::after{content:'';position:absolute;left:0;right:0;top:100%;height:18px;
+    background:linear-gradient(#fff,rgba(255,255,255,0))}
   #mStick svg{width:56px;height:56px;display:block}
   .msec{padding:40px 0}          /* 80px of whitespace between sections */
   /* hero: first section fills the first viewport exactly — 100svh minus the
@@ -302,9 +309,14 @@ p{text-wrap:pretty}
      Static on purpose: the app is not editable on mobile. */
   .mshot{width:100%;display:block;margin-top:24px;border:1px solid #e5e5e5;border-radius:24px}
 
-  /* feature list — one beat per hairline row */
+  /* feature list — one beat per hairline row. First row drops its top padding
+     so the gap under the heading rule matches the row rhythm (Figma 69:1081). */
   .mfeat{font-size:calc(var(--mbody)*1px);line-height:1.35;color:var(--dim);letter-spacing:-0.02em;margin:0;padding:20px 0}
   .mfeat+.mfeat{border-top:1px solid var(--line)}
+  .mfeat:first-child{padding-top:0}
+  /* the signup button sits IN the form row — the generic mobile button
+     margin-top was shoving it out of alignment with the email field */
+  .mbody .form .btn{margin-top:0}
 
   /* signup: the sticky icon takes over the celebration — winks and tilts */
   #mStickIcon{transition:transform .45s var(--ease-out)}
@@ -976,9 +988,17 @@ function buildMobile(){
   const stick=document.createElement('div'); stick.id='mStick';
   const topIcon=document.getElementById('mark').cloneNode(true); topIcon.removeAttribute('id'); topIcon.id='mStickIcon';
   stick.appendChild(topIcon); m.appendChild(stick);
-  // measure the sticky header so the hero's 100svh math is exact, and keep it exact on resize
-  const setStickH=()=>document.documentElement.style.setProperty('--stickH', stick.offsetHeight+'px');
+  // the bar is position:fixed — this spacer holds its place in the flow
+  const space=document.createElement('div'); space.id='mStickSpace'; m.appendChild(space);
+  // measure the fixed header so the hero's 100svh math (and the spacer) stay exact
+  const setStickH=()=>{ const h=stick.offsetHeight; space.style.height=h+'px';
+    document.documentElement.style.setProperty('--stickH', h+'px'); };
   requestAnimationFrame(setStickH); addEventListener('resize',setStickH);
+  // iOS keyboard pans the layout viewport; pin the bar to the VISUAL viewport
+  if(window.visualViewport){
+    const pin=()=>{ stick.style.top=visualViewport.offsetTop+'px'; };
+    visualViewport.addEventListener('resize',pin); visualViewport.addEventListener('scroll',pin);
+  }
 
   // touch tooltips: tap an underlined term → tooltip for 2s, then fade (no hover on mobile)
   m.addEventListener('click',e=>{
@@ -1072,6 +1092,7 @@ function applyMobileBoomski(ref, icon, animate){
 function mobileSignup(ref, icon){
   if(state.signedUp){ return; }
   state.signedUp=true; save();
+  fireConfetti();                       // celebration bursts behind the fixed icon (z-order)
   applyMobileBoomski(ref, icon, true);
 }
 
