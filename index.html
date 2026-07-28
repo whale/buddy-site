@@ -116,6 +116,10 @@ p:last-of-type{margin-bottom:0}
 .nudge{display:inline-flex;align-items:center;gap:calc(8px*var(--s));margin-top:calc(46px*var(--s));color:var(--red);
   font:inherit;font-size:calc(var(--body)*1px*var(--s));font-weight:500;letter-spacing:-0.02em;cursor:pointer;background:none;border:0;padding:0}
 .nudge:active{transform:scale(.97)}
+.nudge-hint{color:var(--red) !important;font-weight:500}
+/* no runts: balance evens heading lines; pretty keeps a lone word off the last line */
+h1,.mh1{text-wrap:balance}
+p{text-wrap:pretty}
 .nudge svg{width:calc(16px*var(--s));height:calc(16px*var(--s));transition:transform .18s var(--ease-out)}
 .nudge:hover svg{transform:translateX(3px)}
 /* align-items:center — NOT the default stretch, which makes a flex:1 <input> compute
@@ -137,6 +141,13 @@ p:last-of-type{margin-bottom:0}
 #taskArrow{position:fixed;left:0;top:0;z-index:60;pointer-events:none;
   opacity:0;transition:opacity .35s var(--ease-out)}
 #taskArrow.show{opacity:1}
+/* elongate 4px toward the card and back — tail stays put, head reaches.
+   Animated on the inner <g> (scaleX from the left edge) because JS owns the
+   outer svg's transform for positioning. 66px × 1.0605 ≈ +4px. */
+#taskArrow g{transform-box:view-box;transform-origin:left center;
+  animation:arrowReach .9s ease-in-out infinite alternate}
+@keyframes arrowReach{from{transform:scaleX(1)}to{transform:scaleX(1.0605)}}
+@media (prefers-reduced-motion:reduce){ #taskArrow g{animation:none} }
 
 @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .enter,.leave{animation:none} }
 
@@ -154,6 +165,15 @@ p:last-of-type{margin-bottom:0}
 #drawer.lvl2{--card:var(--red);--ink:#fff;--ink-dim:rgba(255,255,255,.6);--chrome-ink:#fff;--chrome-hover:rgba(0,0,0,.18);
   --sel-bg:#fff;--sel-ink:var(--red);--line:rgba(255,255,255,.30);--addtxt:rgba(255,255,255,.60);
   --glyph:rgba(255,255,255,.92);--seg-track:rgba(255,255,255,.20)}
+
+/* mode switcher — site chrome under the card, not part of the app mirror.
+   gap(8) + margin(8) = 16px breathing room above the links. */
+#modeSwitch{display:flex;gap:8px;width:400px;margin-top:8px;flex-shrink:0}
+#modeSwitch button{flex:1;background:none;border:1px solid #e5e5e5;border-radius:999px;padding:9px 0;
+  font:inherit;font-size:12px;letter-spacing:-0.1px;color:rgba(0,0,0,.35);cursor:pointer;
+  transition:color .15s ease,border-color .15s ease}
+#modeSwitch button:hover{color:rgba(0,0,0,.65)}
+#modeSwitch button.sel{color:rgba(0,0,0,.8);border-color:#ccc}
 
 .bcard{width:400px;flex-shrink:0;background:var(--card);border-radius:24px;overflow:hidden;transition:background-color .2s ease}
 .dhead{display:flex;align-items:center;justify-content:space-between;padding:24px 32px}
@@ -193,6 +213,9 @@ p:last-of-type{margin-bottom:0}
 .acts{position:absolute;top:50%;transform:translateY(-50%);right:20px;display:flex;flex-direction:column;align-items:center;gap:5px;
   opacity:0;transition:opacity .15s ease}
 .donezo-row .acts,.future-row .acts{flex-direction:row}
+/* squeezed list: rows are shorter than the 3-icon column (~100px), so the
+   column overflows the row. Flip to a horizontal row; fit() sets .tight. */
+#list.tight .buddy-row .acts{flex-direction:row;gap:2px;right:12px}
 .buddy-row:hover .acts,.donezo-row:hover .acts,.future-row:hover .acts{opacity:1}
 .acts button{width:30px;height:30px;display:grid;place-items:center;border-radius:999px;border:0;background:transparent;
   color:var(--glyph);cursor:pointer;transition:background-color .15s ease}
@@ -238,14 +261,13 @@ p:last-of-type{margin-bottom:0}
   .beat, #dots, #drawer, #stage{display:none !important}
   body{overflow-x:clip}          /* clip (not hidden) — hidden breaks position:sticky */
   #mobileWrap{display:block}
-  #mobile{max-width:520px;margin:0 auto;padding:0 24px 80px;position:relative}
+  #mobile{max-width:520px;margin:0 auto;padding:0 24px;position:relative}   /* no bottom pad — the winking face crops at the page edge */
   /* single icon, pinned at the top — does NOT repeat per section */
   #mStick{position:sticky;top:0;z-index:10;padding:22px 0 14px;
     background:linear-gradient(#fff 66%, rgba(255,255,255,0))}
   #mStick svg{width:56px;height:56px;display:block}
-  .msec{padding:44px 0}
+  .msec{padding:84px 0}          /* sections separated by whitespace alone (+80px total) */
   .msec:first-of-type{padding-top:12px}
-  .msec + .msec{border-top:1px solid #f0f0f0}
   .mh1{font-size:calc(var(--mh1)*1px);font-weight:500;letter-spacing:-0.02em;line-height:1.05;margin:0}
   .mrule{border:0;border-top:1px solid var(--line);margin:24px 0}
   .mbody{font-size:calc(var(--mbody)*1px)}
@@ -255,23 +277,27 @@ p:last-of-type{margin-bottom:0}
   .mbody .form{margin-top:24px}
   .mbody .field,.mbody .btn{font-size:16px}
   .mbody .ok{font-size:19px}
-  .mcard{width:100%;max-width:360px;margin:24px auto 0;border-radius:24px;overflow:hidden;
-    box-shadow:0 1px 4px rgba(0,0,0,.05),0 10px 30px rgba(0,0,0,.09)}
+  /* interfaces match the text column width — no shadow, 1px grey stroke */
+  .mcard{width:100%;margin:24px 0 0;border-radius:24px;overflow:hidden;border:1px solid #e5e5e5}
   .mcard .bcard{width:100% !important;border-radius:0}
   .mcard .dnum{font-size:52px}
   .mcard .dwk{font-size:21px}
   .mcard .dwx{width:42px;height:42px}
   .mcard .dhead{padding:20px 24px}
   .mcard .ddate{padding:24px 24px}
-  /* footer winking icon (thinner stroke) — near full content-width, per Figma (384/400) */
-  .mfoot{padding:72px 0 24px}
-  .mfoot svg{width:88%;max-width:340px;height:auto;display:block}
+  /* footer winking icon (thinner stroke) — near full content-width, per Figma (384/400).
+     Cropped at the page bottom edge (Figma 69:1242): the face runs off-screen,
+     so the section clips it instead of padding under it. */
+  .mfoot{padding:96px 0 0;overflow:hidden}
+  .mfoot svg{width:88%;max-width:340px;height:auto;display:block;margin-bottom:-12%}
 }
 </style>
 </head>
 <body>
 
-<!-- 4 scroll slides; Boomski is the signup-success variant of slide 4, not its own slide -->
+<!-- 6 scroll slides; Boomski is the signup-success variant of slide 6, not its own slide -->
+<section class="beat"></section>
+<section class="beat"></section>
 <section class="beat"></section>
 <section class="beat"></section>
 <section class="beat"></section>
@@ -298,9 +324,11 @@ p:last-of-type{margin-bottom:0}
     <div class="slot" id="slotHead">
       <h1 class="blk hd" data-i="0">Hey, this is Buddy.</h1>
       <h1 class="blk hd" data-i="1">Phew! Just for today.</h1>
-      <h1 class="blk hd" data-i="2">Buddy is there when you need him. Hidden when you don't.</h1>
-      <h1 class="blk hd" data-i="3">Kinda dope.</h1>
-      <h1 class="blk hd" data-i="4">Boomski.</h1>
+      <h1 class="blk hd" data-i="2">Feeling ambitious?</h1>
+      <h1 class="blk hd" data-i="3">Wanna have a done party?</h1>
+      <h1 class="blk hd" data-i="4">Buddy is there when you need him. Hidden when you don't.</h1>
+      <h1 class="blk hd" data-i="5">K. Byeee!</h1>
+      <h1 class="blk hd" data-i="6">Boomski.</h1>
     </div>
     <div id="ruleWrap"><hr id="rule"></div>
     <div class="slot" id="slotBody">
@@ -310,21 +338,29 @@ p:last-of-type{margin-bottom:0}
       </div>
       <div class="blk bd" data-i="1">
         <p>To hell with big list energy. Six things is the limit because size matters.</p>
-        <p>Buddy lets you know when you're getting too ambitious.</p>
+        <p>Go on — add something. Anything. That thing you shouldn't forget to do.</p>
         <button class="btn" id="addTaskBtn">Add a task!</button>
       </div>
       <div class="blk bd" data-i="2">
-        <p>Tucked out of the way on the right of your screen until you forget what you were doing. Then just tap the right side and — whammo — relief in reminder form. You're welcome.</p>
-        <button class="btn" data-go="3">Okay, hide Buddy</button>
+        <p>Try it. Add a 5th thing and Buddy blushes. See what happens when you add a 6th! That's it. Can't add more. Limits are our friends.</p>
+        <button class="btn" id="addTaskBtn2">Add another task</button>
       </div>
       <div class="blk bd" data-i="3">
+        <p>Hover a task and check it off. Party time. Everything you finish stacks up in today's done list. Feels good to spy on what you have done!</p>
+        <button class="btn" data-go="4">Next <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="blk bd" data-i="4">
+        <p>Tucked out of the way on the right of your screen until you forget what you were doing. Then just tap the right side and — whammo — relief in reminder form. You're welcome.</p>
+        <button class="btn" data-go="5">Okay, hide Buddy</button>
+      </div>
+      <div class="blk bd" data-i="5">
         <p>If this is your thing, sign up and I'll send you a beta invite. Want it sooner? Post about my side project <span class="tip" data-tip="Decaf coffee for people with too much going on. Yes, really.">Wimp Decaf</span> somewhere public and I'll bump you up the list. Bribery, but decaffeinated.</p>
         <form class="form" onsubmit="event.preventDefault();window.__signup&&window.__signup()">
           <input class="field" type="email" placeholder="Email address" required>
           <button class="btn" type="submit">Sign me up</button>
         </form>
       </div>
-      <div class="blk bd" data-i="4">
+      <div class="blk bd" data-i="6">
         <div class="ok">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           You've been added to beta.
@@ -335,8 +371,8 @@ p:last-of-type{margin-bottom:0}
 </div>
 
 <!-- exact vector from Figma node 95:8 (Vector 326) — do not redraw -->
-<svg id="taskArrow" aria-hidden="true" width="66.2372" height="31.5929" viewBox="0 0 66.2372 31.5929" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M65.444 15.8858H0M50.3513 0.707107L65.53 15.8858M50.3513 30.8858L65.5301 15.7071" stroke="#D9D9D9" stroke-width="2"/>
+<svg id="taskArrow" aria-hidden="true" width="66.2372" height="31.5929" viewBox="0 0 66.2372 31.5929" fill="none" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+  <g><path d="M65.444 15.8858H0M50.3513 0.707107L65.53 15.8858M50.3513 30.8858L65.5301 15.7071" stroke="#000" stroke-width="2"/></g>
 </svg>
 
 <aside id="drawer" data-open="0">
@@ -373,6 +409,11 @@ p:last-of-type{margin-bottom:0}
       </div>
       <div id="sheetBody"></div>
     </div>
+  </div>
+  <div id="modeSwitch">
+    <button data-mode="noticer" class="sel">Super Noticer mode</button>
+    <button data-mode="walter">Walter White mode</button>
+    <button data-mode="thunder">Thunder Cats mode</button>
   </div>
 </aside>
 
@@ -526,6 +567,7 @@ function render(){
   if(justAddedId){ /* consumed by startEdit */ }
   donezoEnterId=null;
   if(sheetOpen) renderSheet();
+  syncAmbitiousBtn();
   maybeAdvanceAfterFirstAdd();
 }
 
@@ -584,6 +626,11 @@ function fit(){
     if(!d) for(let f=FIT.CEIL;f>=FIT.FLOOR&&!d;f-=0.5) if(req(f,FIT.PADMIN)<=H){ fs=f; vp=FIT.PADMIN; d=true; }
     if(!d){ fs=FIT.FLOOR; vp=FIT.PADMIN; } }
   list.style.setProperty('--fs',fs+'px'); list.style.setProperty('--vpad',vp+'px');
+  // rows shorter than the vertical 3-icon stack plus breathing room (stack ≈ 100,
+  // icons touch borders below ~140) → lay icons horizontally. Mirrors the Mac app.
+  const rows=[...list.querySelectorAll('.buddy-row')];
+  const minRow=rows.length?Math.min(...rows.map(r=>r.offsetHeight)):Infinity;
+  list.classList.toggle('tight', minRow<140);
 }
 
 /* ---------------- Future / Done sheet ---------------- */
@@ -698,10 +745,10 @@ const bodies=[...document.querySelectorAll('.bd')];
 const slotHead=document.getElementById('slotHead'), slotBody=document.getElementById('slotBody');
 const rule=document.getElementById('rule'), ruleWrap=document.getElementById('ruleWrap');
 const stage=document.getElementById('stage'), dots=document.getElementById('dots');
-const NSCROLL=4;                  // scroll slides (Boomski is NOT one — it's slide 4's success variant)
-const BOOMSKI=4, SIGNUP_SLIDE=3;
-const DRAWER_ON=[0,1,1,0];        // drawer open per scroll slide
-const blkIdx=[0,1,2,3,4];
+const NSCROLL=6;                  // scroll slides (Boomski is NOT one — it's slide 6's success variant)
+const BOOMSKI=6, SIGNUP_SLIDE=5;
+const DRAWER_ON=[0,1,1,1,1,0];    // drawer open per scroll slide
+const blkIdx=[0,1,2,3,4,5,6];
 
 for(let i=0;i<NSCROLL;i++){ const d=document.createElement('b'); d.dataset.go=i; d.onclick=()=>go(i); dots.appendChild(d); }
 
@@ -764,6 +811,7 @@ function updateIcon(){ mark.classList.toggle('winking', shown===BOOMSKI); }
 function goToSlide(slide){
   scrollSlide=slide;
   slide1Base = slide===1 ? realCount() : -1;
+  slide3Base  = slide===3 ? donezoCount() : -1;
   applyDrawer(slide);
   [...dots.children].forEach((d,n)=>d.classList.toggle('on',n===slide));
   const want=(state.signedUp && slide===SIGNUP_SLIDE) ? BOOMSKI : slide;
@@ -786,8 +834,63 @@ window.__signup=signup;
 function go(i){ scrollTo({top:Math.max(0,Math.min(NSCROLL-1,i))*innerHeight, behavior:'smooth'}); }
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(+b.dataset.go));
 
-/* "Add a task!" starts a real add in the drawer; the arrow shows where it lands */
-document.getElementById('addTaskBtn').addEventListener('click',addAndEdit);
+/* ---- adaptive add buttons ----
+   Both add buttons track the live list, so they never lie about what the
+   drawer will accept. Below the soft cap they invite adds; at the soft cap
+   slide 2 doubles down; at the hard cap (full red) BOTH become "Next".
+   Re-synced on every render, so checking a task done flips them right back. */
+const NEXT_ARROW=' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+function setBtnLabel(b,want){ if(b && b.dataset.label!==want){ b.dataset.label=want; b.innerHTML=want; } }
+function syncAmbitiousBtn(){
+  const n=activeCount(), full=n>=HARD_CAP;
+  setBtnLabel(document.getElementById('addTaskBtn'), full ? 'Next'+NEXT_ARROW : 'Add a task!');
+  setBtnLabel(document.getElementById('addTaskBtn2'),
+    full ? 'Next'+NEXT_ARROW : n===SOFT_CAP ? 'Add yet another!' : 'Add another task');
+}
+document.getElementById('addTaskBtn').addEventListener('click',()=>{
+  if(activeCount()>=HARD_CAP) go(2); else addAndEdit();
+});
+document.getElementById('addTaskBtn2').addEventListener('click',()=>{
+  if(activeCount()>=HARD_CAP) go(3); else addAndEdit();
+});
+
+/* ---- fun task modes + refresh reset ----
+   The switcher reseeds the live engine with themed tasks. The list also
+   resets to the current mode's seed on every page load (no persistence, for
+   now) so the story always starts from the beginning. Signup state persists. */
+const MODES={
+  noticer:{items:['Find wallet (it’s somewhere “safe”)','Ask wife what I forgot to write down','Rewash the laundry I abandoned in the washer'],deferred:['Reply to the 9-day-old text. The shame is load-bearing now.']},
+  walter:{items:['Acquire a barrel. Ask zero questions.','Tell Skyler it’s car wash money. Hold eye contact.','Remind Jesse we do not say his name.'],deferred:['The crawl space situation.']},
+  thunder:{items:['Polish the Sword of Omens. It judges you.','Feed Snarf before he narrates again','Tell Mumm-Ra monologues are not a plan'],deferred:['Fix the Cat Signal. Wilykit knows what she did.']}
+};
+let mode='noticer';   // Super Noticer is the default
+const seedItems=()=>MODES[mode].items.map(t=>Object.assign(newItem(t),{seeded:true}));
+const seedDeferred=()=>MODES[mode].deferred.map(t=>({id:nid(),text:t,sent:false,seeded:true}));
+function seedMode(){
+  state.items=seedItems();
+  state.deferred=seedDeferred();
+  editingId=null;
+}
+function applyMode(next){
+  if(next===mode) return;
+  mode=next;
+  // swap the mode's seeded content, but KEEP everything the visitor added or slept
+  const myItems=state.items.filter(it=>!it.seeded);
+  const myDeferred=state.deferred.filter(d=>!d.seeded);
+  state.items=[...seedItems(),...myItems];
+  state.deferred=[...seedDeferred(),...myDeferred];
+  // over the cap after the swap → the mode's seeds yield, never the visitor's tasks
+  while(state.items.filter(i=>i.state!=='done').length>HARD_CAP){
+    const i=state.items.findIndex(x=>x.seeded&&x.state!=='done');
+    if(i<0) break; state.items.splice(i,1);
+  }
+  editingId=null;
+  slide1Base = scrollSlide===1 ? realCount() : -1;    // re-baseline the story beats
+  slide3Base = scrollSlide===3 ? donezoCount() : -1;
+  save(); render();
+  document.querySelectorAll('#modeSwitch button').forEach(b=>b.classList.toggle('sel',b.dataset.mode===mode));
+}
+document.querySelectorAll('#modeSwitch button').forEach(b=>b.addEventListener('click',()=>applyMode(b.dataset.mode)));
 
 /* ---- gray pointer arrow → drawer's Add + row ----
    Live-tracked in rAF (two rect reads per frame — negligible) so it rides the
@@ -797,7 +900,8 @@ const taskArrow=document.getElementById('taskArrow');
 const ARROW_W=66, ARROW_H=32, ARROW_GAP=34;
 function drawTaskArrow(){
   const btn=document.getElementById('addTaskBtn'), row=drawer.querySelector('.addrow');
-  if(scrollSlide!==1 || shown!==1 || isMobile() || !btn || !row || drawer.dataset.open!=='1'){
+  const onAddSlide=(scrollSlide===1||scrollSlide===2) && (shown===1||shown===2);   // both adding slides
+  if(!onAddSlide || isMobile() || !btn || !row || drawer.dataset.open!=='1'){
     taskArrow.classList.remove('show'); return;
   }
   const b=btn.getBoundingClientRect(), a=row.getBoundingClientRect();
@@ -808,17 +912,23 @@ function drawTaskArrow(){
 }
 (function arrowLoop(){ drawTaskArrow(); requestAnimationFrame(arrowLoop); })();
 
-/* ---- first task added on slide 1 → auto-advance ----
-   Baseline is the count of real (non-empty, non-done) tasks when slide 1 opens;
-   the demo seeds 3, so we watch for growth, not for "any task". The empty row
-   addAndEdit creates doesn't count until it's committed with text on blur. */
-let slide1Base=-1;
-const realCount=()=>state.items.filter(it=>!isDonezo(it)&&it.text&&it.text.trim()).length;
+/* ---- story beats driven by what the visitor does in the drawer ----
+   slide 1: first real task added → advance to the red slide.
+   slide 2: no auto-advance — the adaptive button becomes "Next" at the cap.
+   slide 3: they check something off and the Donezo lands → advance.
+   Baselines are captured on slide entry so returning visitors with pre-filled
+   state don't get auto-scrolled. Empty rows don't count until committed. */
+let slide1Base=-1, slide3Base=-1;
+const realCount=()=>state.items.filter(it=>it.state!=='done'&&it.text&&it.text.trim()).length;
+const donezoCount=()=>state.items.filter(it=>it.state==='done').length;
 function maybeAdvanceAfterFirstAdd(){
-  if(scrollSlide!==1 || slide1Base<0 || editingId) return;
-  if(realCount()>slide1Base){
+  if(scrollSlide===1 && slide1Base>=0 && !editingId && realCount()>slide1Base){
     slide1Base=-1;
-    setTimeout(()=>{ if(scrollSlide===1) go(2); }, 650);   // beat to see it land, then advance
+    setTimeout(()=>{ if(scrollSlide===1) go(2); }, 650);    // beat to see it land
+  }
+  if(scrollSlide===3 && slide3Base>=0 && donezoCount()>slide3Base){
+    slide3Base=-1;
+    setTimeout(()=>{ if(scrollSlide===3) go(4); }, 4200);   // confetti + Donezo morph play out
   }
 }
 
@@ -844,8 +954,8 @@ function buildMobile(){
   const topIcon=document.getElementById('mark').cloneNode(true); topIcon.removeAttribute('id'); topIcon.id='mStickIcon';
   stick.appendChild(topIcon); m.appendChild(stick);
 
-  // sections 0..3 only — Boomski (4) is the signup-success variant of section 3, not its own section
-  const secs=[0,1,2,3].map(i=>({idx:i, h:heads[i].textContent, body:bodies[i].cloneNode(true), card:i===1}));
+  // sections 0..5 only — Boomski (6) is the signup-success variant of section 5, not its own section
+  const secs=[0,1,2,3,4,5].map(i=>({idx:i, h:heads[i].textContent, body:bodies[i].cloneNode(true), card:i===1}));
   let mKindaSec=null;
   secs.forEach(s=>{
     const sec=document.createElement('div'); sec.className='msec';
@@ -853,11 +963,13 @@ function buildMobile(){
     const hr=document.createElement('hr'); hr.className='mrule';
     const body=s.body; body.className='mbody'; body.style.cssText='';
     body.querySelectorAll('p').forEach(p=>p.classList.add('mp'));
-    // no live drawer on mobile — "Add a task!" (and its arrow) are desktop-only
-    body.querySelectorAll('#addTaskBtn').forEach(el=>el.remove());
+    // no live drawer on mobile — the add buttons (and the arrow) are desktop-only
+    body.querySelectorAll('#addTaskBtn,#addTaskBtn2').forEach(el=>el.remove());
     body.querySelectorAll('.btn,.nudge,.form,.ok').forEach(el=>el.style.cssText='');
     sec.append(h,hr,body);
     if(s.card) sec.appendChild(buildMobileCard());
+    if(s.idx===2) sec.appendChild(buildMobileRedCard());   // static full-red state
+    if(s.idx===3) sec.appendChild(buildMobileDonezo());    // static Donezo rows
     if(s.idx===SIGNUP_SLIDE){
       mKindaSec={sec,h,body};
       const form=body.querySelector('.form');
@@ -870,6 +982,12 @@ function buildMobile(){
   // footer winking face — thinner stroke, from Figma node 69:1195
   const foot=document.createElement('div'); foot.className='mfoot';
   foot.innerHTML=FOOT_ICON; m.appendChild(foot);
+
+  // mobile sections are static — data-go buttons just scroll to the next section
+  m.querySelectorAll('.btn[data-go],[data-go].btn').forEach(b=>{
+    b.onclick=e=>{ e.preventDefault(); const sec=b.closest('.msec');
+      sec && sec.nextElementSibling && sec.nextElementSibling.scrollIntoView({behavior:'smooth'}); };
+  });
 }
 const FOOT_ICON=`<svg viewBox="0 0 396 396" fill="none" aria-label="Buddy" role="img">
   <path d="M390 144.24L262 6H48.6666C37.3507 6 26.4983 10.4952 18.4968 18.4968C10.4952 26.4983 6 37.3507 6 48.6666V347.333C6 358.649 10.4952 369.502 18.4968 377.503C26.4983 385.505 37.3507 390 48.6666 390H347.333C358.649 390 369.502 385.505 377.503 377.503C385.505 369.502 390 358.649 390 347.333V144.24Z" fill="#fff"/>
@@ -908,16 +1026,36 @@ function buildMobileCard(){
     +`<div style="padding:20px 32px;font-size:20px;font-weight:500;letter-spacing:-0.4px;color:rgba(0,0,0,.2);border-top:1px solid #ededed">Add +</div>`;
   c.appendChild(listCopy); return c;
 }
+/* static red (lvl2) card — the 6-task full state, list only */
+function buildMobileRedCard(){
+  const c=document.createElement('div'); c.className='mcard';
+  c.style.border='none';   // stroke is for the white interfaces; red card carries its own weight
+  const tasks=['Water the plants','Reply to Sam','Ship the thing','Call the bank','Fold the laundry','One more thing'];
+  const row=(t,i)=>`<div style="padding:18px 32px;font-size:20px;font-weight:500;letter-spacing:-0.4px;color:#fff;${i?'border-top:1px solid rgba(255,255,255,.3);':''}">${t}</div>`;
+  c.innerHTML=`<div style="background:var(--red);border-radius:24px;overflow:hidden">${tasks.map(row).join('')}
+    <div style="padding:18px 32px;font-size:14px;letter-spacing:-0.2px;color:rgba(255,255,255,.75);border-top:1px solid rgba(255,255,255,.3)">That's six. Buddy says no.</div></div>`;
+  return c;
+}
+/* static Donezo rows — the feel-good done list */
+function buildMobileDonezo(){
+  const c=document.createElement('div'); c.className='mcard';
+  const rows=[['Donezo','Water the plants'],['Sorted','Reply to Sam'],['Ta-Da','Ship the thing']];
+  c.innerHTML=`<div style="background:#fff;border-radius:24px;overflow:hidden">${rows.map(([w,t],i)=>
+    `<div style="display:flex;gap:12px;align-items:baseline;padding:18px 32px;${i?'border-top:1px solid #ededed;':''}">
+      <b style="font-size:20px;letter-spacing:-0.4px">${w}</b>
+      <s style="font-size:20px;font-weight:500;letter-spacing:-0.4px;color:rgba(0,0,0,.35)">${t}</s>
+    </div>`).join('')}</div>`;
+  return c;
+}
 
 /* ---------------- boot ---------------- */
 function isMobile(){ return matchMedia('(max-width:1024px), (pointer:coarse)').matches; }
 function boot(){
   setScale();
-  if(!load()){
-    state.items=[newItem('Water the plants'),newItem('Reply to Sam'),newItem('Ship the thing')];
-    state.deferred=[{id:nid(),text:'Book the dentist',sent:false}];
-    save();
-  }
+  load();
+  state.signedUp=false;   // refresh restores the signup form — the whole story replays
+  seedMode();             // every refresh starts the list from the beginning (for now)
+  save();
   render();
   if(isMobile()){ buildMobile(); }
   anchor(); scrollSlide=-1; onScrollPos();
