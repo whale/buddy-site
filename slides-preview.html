@@ -864,16 +864,27 @@ const MODES={
   thunder:{items:['Polish the Sword of Omens. It judges you.','Feed Snarf before he narrates again','Tell Mumm-Ra monologues are not a plan'],deferred:['Fix the Cat Signal. Wilykit knows what she did.']}
 };
 let mode='noticer';   // Super Noticer is the default
+const seedItems=()=>MODES[mode].items.map(t=>Object.assign(newItem(t),{seeded:true}));
+const seedDeferred=()=>MODES[mode].deferred.map(t=>({id:nid(),text:t,sent:false,seeded:true}));
 function seedMode(){
-  const m=MODES[mode];
-  state.items=m.items.map(t=>newItem(t));
-  state.deferred=m.deferred.map(t=>({id:nid(),text:t,sent:false}));
+  state.items=seedItems();
+  state.deferred=seedDeferred();
   editingId=null;
 }
 function applyMode(next){
   if(next===mode) return;
   mode=next;
-  seedMode();
+  // swap the mode's seeded content, but KEEP everything the visitor added or slept
+  const myItems=state.items.filter(it=>!it.seeded);
+  const myDeferred=state.deferred.filter(d=>!d.seeded);
+  state.items=[...seedItems(),...myItems];
+  state.deferred=[...seedDeferred(),...myDeferred];
+  // over the cap after the swap → the mode's seeds yield, never the visitor's tasks
+  while(state.items.filter(i=>i.state!=='done').length>HARD_CAP){
+    const i=state.items.findIndex(x=>x.seeded&&x.state!=='done');
+    if(i<0) break; state.items.splice(i,1);
+  }
+  editingId=null;
   slide1Base = scrollSlide===1 ? realCount() : -1;    // re-baseline the story beats
   slide3Base = scrollSlide===3 ? donezoCount() : -1;
   save(); render();
@@ -1041,8 +1052,9 @@ function buildMobileDonezo(){
 function isMobile(){ return matchMedia('(max-width:1024px), (pointer:coarse)').matches; }
 function boot(){
   setScale();
-  load();        // keeps signup state; the list itself always resets below
-  seedMode();    // every refresh starts the story from the beginning (for now)
+  load();
+  state.signedUp=false;   // refresh restores the signup form — the whole story replays
+  seedMode();             // every refresh starts the list from the beginning (for now)
   save();
   render();
   if(isMobile()){ buildMobile(); }
