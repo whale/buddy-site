@@ -1,5 +1,4 @@
-.DS_Store
-.vercel
-node_modules/
-*.log
-.screenshots/
+.playwright-mcp/
+*.png
+!assets/**/*.png
+!favicon*
