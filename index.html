@@ -102,6 +102,8 @@ p:last-of-type{margin-bottom:0}
   border:7px solid transparent;border-top-color:#000;border-bottom:0;opacity:0;
   transition:opacity .18s var(--ease-out),translate .18s var(--ease-out)}
 .tip:hover::after,.tip:hover::before{opacity:1;translate:-50% 0}
+/* touch: tap shows the tooltip (JS adds .tip-on for 2s, then it fades back) */
+.tip.tip-on::after,.tip.tip-on::before{opacity:1;translate:-50% 0}
 
 /* pill padding matched to the Mac app's primary button (px-7 py-3 ≈ 28/12 at its 18px);
    kept proportional to the landing button's 16px text → ~26/13, a proper 2:1 pill. */
@@ -268,14 +270,14 @@ p{text-wrap:pretty}
     background:linear-gradient(#fff 66%, rgba(255,255,255,0))}
   #mStick svg{width:56px;height:56px;display:block}
   .msec{padding:40px 0}          /* 80px of whitespace between sections */
-  /* hero: first section fills the first viewport — heading + copy up top,
-     button pinned to the bottom edge. svh so the iOS URL bar doesn't lie.
+  /* hero: first section fills the first viewport exactly — 100svh minus the
+     sticky icon's MEASURED height (JS sets --stickH; 92px is only the fallback).
+     The whole heading/copy/button block rides the bottom edge.
      (.mhero class set in buildMobile — :first-of-type can't work here because
      the sticky icon div is the first div sibling.) */
-  .mhero{padding-top:12px;box-sizing:border-box;min-height:calc(100svh - 92px);
-    display:flex;flex-direction:column}
-  .mhero .mbody{display:flex;flex-direction:column;flex:1}
-  .mhero .mbody .btn{margin-top:auto;margin-bottom:28px;align-self:flex-start}
+  .mhero{padding-top:12px;box-sizing:border-box;min-height:calc(100svh - var(--stickH,92px));
+    display:flex;flex-direction:column;justify-content:flex-end}
+  .mhero .mbody .btn{margin-bottom:28px;align-self:flex-start}
   /* on mobile the next section is BELOW — the hero arrow points down */
   .mhero .btn svg{transform:rotate(90deg) !important}
   .mh1{font-size:calc(var(--mh1)*1px);font-weight:500;letter-spacing:-0.02em;line-height:1.05;margin:0}
@@ -964,6 +966,17 @@ function buildMobile(){
   const stick=document.createElement('div'); stick.id='mStick';
   const topIcon=document.getElementById('mark').cloneNode(true); topIcon.removeAttribute('id'); topIcon.id='mStickIcon';
   stick.appendChild(topIcon); m.appendChild(stick);
+  // measure the sticky header so the hero's 100svh math is exact, and keep it exact on resize
+  const setStickH=()=>document.documentElement.style.setProperty('--stickH', stick.offsetHeight+'px');
+  requestAnimationFrame(setStickH); addEventListener('resize',setStickH);
+
+  // touch tooltips: tap an underlined term → tooltip for 2s, then fade (no hover on mobile)
+  m.addEventListener('click',e=>{
+    const tip=e.target.closest('.tip'); if(!tip) return;
+    m.querySelectorAll('.tip.tip-on').forEach(t=>{ if(t!==tip) t.classList.remove('tip-on'); });
+    tip.classList.add('tip-on');
+    clearTimeout(tip._tipT); tip._tipT=setTimeout(()=>tip.classList.remove('tip-on'), 2000);
+  });
 
   // sections 0..5 only — Boomski (6) is the signup-success variant of section 5, not its own section
   const secs=[0,1,2,3,4,5].map(i=>({idx:i, h:heads[i].textContent, body:bodies[i].cloneNode(true), card:i===1}));
