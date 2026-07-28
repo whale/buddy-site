@@ -275,9 +275,8 @@ p{text-wrap:pretty}
      (.mhero class set in buildMobile — :first-of-type can't work here because
      the sticky icon div is the first div sibling.) */
   .mhero{padding-top:12px;box-sizing:border-box;min-height:calc(100svh - 92px);
-    display:flex;flex-direction:column}
-  .mhero .mbody{display:flex;flex-direction:column;flex:1}
-  .mhero .mbody .btn{margin-top:auto;margin-bottom:28px;align-self:flex-start}
+    display:flex;flex-direction:column;justify-content:flex-end}   /* whole block rides the bottom */
+  .mhero .mbody .btn{margin-bottom:28px;align-self:flex-start}
   /* on mobile the next section is BELOW — the hero arrow points down */
   .mhero .btn svg{transform:rotate(90deg) !important}
   .mh1{font-size:calc(var(--mh1)*1px);font-weight:500;letter-spacing:-0.02em;line-height:1.05;margin:0}
