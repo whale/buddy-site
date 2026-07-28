@@ -266,25 +266,28 @@ p{text-wrap:pretty}
   #mobileWrap{display:block}
   #mobile{max-width:520px;margin:0 auto;padding:0 24px;position:relative}   /* no bottom pad — the winking face crops at the page edge */
   /* single icon, pinned at the top — does NOT repeat per section.
-     FIXED (not sticky) + solid white: sticky panned out of view when the iOS
-     keyboard opened, and the old gradient let scrolled text bleed through and
-     show in the translucent status-bar zone. z-index above confetti (60) —
-     the celebration always bursts BEHIND the icon. #mStickSpace holds the
-     layout gap; a JS visualViewport pin keeps the bar in view over the keyboard. */
-  #mStick{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;
-    box-sizing:border-box;padding:22px 24px 14px;z-index:70;background:#fff}
-  #mStick::after{content:'';position:absolute;left:0;right:0;top:100%;height:18px;
+     Plain CSS sticky + solid white: compositor-driven, so it never jitters
+     (the JS visualViewport pinning did). Solid bg stops scrolled text from
+     bleeding through; z-index above confetti (60) so the celebration always
+     bursts BEHIND the icon. Trade-off accepted: while the iOS keyboard is up
+     the icon may pan out of view — it's back before the confetti fires. */
+  #mStick{position:sticky;top:0;z-index:70;padding:22px 0 14px;background:#fff}
+  #mStick::after{content:'';position:absolute;left:-24px;right:-24px;top:100%;height:18px;
     background:linear-gradient(#fff,rgba(255,255,255,0))}
   #mStick svg{width:56px;height:56px;display:block}
+  /* native anchor/focus scrolling clears the bar and breathes above the keyboard */
+  html{scroll-padding:var(--stickH,92px) 0 24px}
   .msec{padding:40px 0}          /* 80px of whitespace between sections */
   /* hero: first section fills the first viewport exactly — 100svh minus the
      sticky icon's MEASURED height (JS sets --stickH; 92px is only the fallback).
      The whole heading/copy/button block rides the bottom edge.
      (.mhero class set in buildMobile — :first-of-type can't work here because
      the sticky icon div is the first div sibling.) */
-  .mhero{padding-top:12px;box-sizing:border-box;min-height:calc(100svh - var(--stickH,92px));
+  .mhero{padding-top:12px;padding-bottom:0;box-sizing:border-box;   /* section's 40px bottom pad was
+    holding the button ~40px off the viewport bottom */
+    min-height:calc(100svh - var(--stickH,92px));
     display:flex;flex-direction:column;justify-content:flex-end}
-  .mhero .mbody .btn{margin-bottom:28px;align-self:flex-start}
+  .mhero .mbody .btn{margin-bottom:24px;align-self:flex-start}
   /* on mobile the next section is BELOW — the hero arrow points down */
   .mhero .btn svg{transform:rotate(90deg) !important}
   .mh1{font-size:calc(var(--mh1)*1px);font-weight:500;letter-spacing:-0.02em;line-height:1.05;margin:0}
@@ -304,10 +307,22 @@ p{text-wrap:pretty}
   .mcard .dwx{width:42px;height:42px}
   .mcard .dhead{padding:20px 24px}
   .mcard .ddate{padding:24px 24px}
-  /* step visual — engine-rendered screenshot, checked into assets/img.
-     Regenerate via Playwright when the drawer design or seed copy changes.
-     Static on purpose: the app is not editable on mobile. */
-  .mshot{width:100%;display:block;margin-top:24px;border:1px solid #e5e5e5;border-radius:24px}
+  /* static app preview — a DOM clone of the real drawer card (crisp SVGs,
+     true hairlines, CSS-scaled). Non-interactive on purpose. */
+  .mstatic{margin-top:24px;border:1px solid #e5e5e5;border-radius:24px;overflow:hidden;
+    background:#fff;pointer-events:none}
+  .mstatic .bcard,.mstatic #listCard{width:100% !important;border-radius:0}
+  .mstatic #listCard{height:auto;flex:none}
+  .mstatic #list{height:auto;overflow:visible;--fs:20px;--vpad:20px;--px:24px}
+  .mstatic .buddy-row{flex:0 0 auto}
+  .mstatic .dhead{padding:20px 24px}
+  .mstatic .ddate{padding:24px 24px}
+  .mstatic .dnum{font-size:52px}
+  .mstatic .dwk{font-size:21px}
+  .mstatic .dwx{width:42px;height:42px}
+  /* body copy on mobile wraps to the full measure — 'pretty' was pulling
+     words down and leaving ragged right edges on short columns */
+  .mp,.mfeat{text-wrap:wrap}
 
   /* feature list — one beat per hairline row. First row drops its top padding
      so the gap under the heading rule matches the row rhythm (Figma 69:1081). */
@@ -988,21 +1003,9 @@ function buildMobile(){
   const stick=document.createElement('div'); stick.id='mStick';
   const topIcon=document.getElementById('mark').cloneNode(true); topIcon.removeAttribute('id'); topIcon.id='mStickIcon';
   stick.appendChild(topIcon); m.appendChild(stick);
-  // the bar is position:fixed — this spacer holds its place in the flow
-  const space=document.createElement('div'); space.id='mStickSpace'; m.appendChild(space);
-  // measure the fixed header so the hero's 100svh math (and the spacer) stay exact
-  const setStickH=()=>{ const h=stick.offsetHeight; space.style.height=h+'px';
-    document.documentElement.style.setProperty('--stickH', h+'px'); };
+  // measure the sticky header so the hero's 100svh math stays exact
+  const setStickH=()=>document.documentElement.style.setProperty('--stickH', stick.offsetHeight+'px');
   requestAnimationFrame(setStickH); addEventListener('resize',setStickH);
-  // iOS keyboard pans the layout viewport; pin the bar to the VISUAL viewport.
-  // resize-only + rAF-throttled — listening to vv 'scroll' made the bar chase
-  // every scroll event during the keyboard animation, which read as jitter.
-  if(window.visualViewport){
-    let raf=null;
-    const pin=()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=null;
-      stick.style.top=visualViewport.offsetTop+'px'; }); };
-    visualViewport.addEventListener('resize',pin);
-  }
 
   // touch tooltips: tap an underlined term → tooltip for 2s, then fade (no hover on mobile)
   m.addEventListener('click',e=>{
@@ -1050,25 +1053,24 @@ function buildMobile(){
     body.querySelectorAll('.btn,.nudge,.form,.ok').forEach(el=>el.style.cssText='');
     sec.append(h,hr,body);
     if(s.idx===1){
-      // narrated copy + one non-interactive engine still of the app
+      // narrated copy + a non-interactive DOM CLONE of the real drawer card.
+      // The clones keep their ids so the id-based card CSS still styles them;
+      // engine JS is unaffected — it captured the originals (earlier in the
+      // DOM) at load, and pointer-events:none makes the copy inert.
       body.querySelectorAll('p').forEach(p=>p.remove());
       body.insertAdjacentHTML('afterbegin','<p class="mp">To hell with big list energy. Six things is the limit because size matters.</p>');
-      const im=document.createElement('img'); im.className='mshot'; im.loading='lazy';
-      im.src='assets/img/step-add.png'; im.alt='Buddy holding a short list of today’s tasks';
-      sec.appendChild(im);
+      const st=document.createElement('div'); st.className='mstatic';
+      st.appendChild(document.querySelector('#drawer .bcard').cloneNode(true));
+      st.appendChild(document.getElementById('listCard').cloneNode(true));
+      st.setAttribute('aria-hidden','true');
+      sec.appendChild(st);
     }
     if(s.idx===SIGNUP_SLIDE){
       mKindaSec={sec,h,body};
       const form=body.querySelector('.form');
       if(form) form.onsubmit=e=>{ e.preventDefault(); mobileSignup(mKindaSec, topIcon); };
-      // when the keyboard opens, park the form 24px above it (iOS pans
-      // unpredictably on its own — we position deliberately once it settles)
-      const fld=form&&form.querySelector('.field');
-      if(fld&&window.visualViewport) fld.addEventListener('focus',()=>{ setTimeout(()=>{
-        const vv=visualViewport;
-        const d=form.getBoundingClientRect().bottom-(vv.offsetTop+vv.height-24);
-        if(Math.abs(d)>4) scrollBy({top:d,behavior:'smooth'});
-      },400); });
+      // keyboard positioning is native + CSS (html scroll-padding-bottom) —
+      // the JS scroll choreography fought iOS and read as up/down weirdness
       if(state.signedUp) applyMobileBoomski(mKindaSec, topIcon, false);
     }
     m.appendChild(sec);
