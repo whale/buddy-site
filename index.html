@@ -154,16 +154,18 @@ p{text-wrap:pretty}
 
 /* ================= drawer — native size, mirrors the Mac build ================= */
 /* re-declare --surface-hover ON the drawer so its var(--card) resolves against the
-   drawer's OWN --card (white at lvl0, red at lvl2) — not :root's fixed white. */
-#drawer{--surface-hover: oklch(from var(--card) calc(l - 0.05) calc(c * 1.1) h);
-  position:fixed;top:0;right:0;z-index:50;height:100vh;width:416px;
+   drawer's OWN --card (white at lvl0, red at lvl2) — not :root's fixed white.
+   .mlive is the mobile host for the SAME live card (the DOM moves there), so every
+   token/escalation rule targets both. */
+#drawer,.mlive{--surface-hover: oklch(from var(--card) calc(l - 0.05) calc(c * 1.1) h)}
+#drawer{position:fixed;top:0;right:0;z-index:50;height:100vh;width:416px;
   display:flex;flex-direction:column;align-items:flex-end;gap:8px;padding:8px;transform-origin:right center;
   filter:drop-shadow(0 1px 4px rgba(0,0,0,.04)) drop-shadow(0 6px 16px rgba(0,0,0,.06)) drop-shadow(0 14px 34px rgba(0,0,0,.09));
   transition:transform .48s var(--ease-out), opacity .48s var(--ease-out)}
 #drawer[data-open="0"]{opacity:0;transform:translateX(22px) scale(.975);pointer-events:none}
-#drawer.lvl1{--ink:var(--red);--ink-dim:rgba(229,72,77,.65);--chrome-ink:var(--red);
+#drawer.lvl1,.mlive.lvl1{--ink:var(--red);--ink-dim:rgba(229,72,77,.65);--chrome-ink:var(--red);
   --sel-bg:var(--red);--sel-ink:#fff;--addtxt:rgba(229,72,77,.45);--glyph:var(--red)}
-#drawer.lvl2{--card:var(--red);--ink:#fff;--ink-dim:rgba(255,255,255,.6);--chrome-ink:#fff;--chrome-hover:rgba(0,0,0,.18);
+#drawer.lvl2,.mlive.lvl2{--card:var(--red);--ink:#fff;--ink-dim:rgba(255,255,255,.6);--chrome-ink:#fff;--chrome-hover:rgba(0,0,0,.18);
   --sel-bg:#fff;--sel-ink:var(--red);--line:rgba(255,255,255,.30);--addtxt:rgba(255,255,255,.60);
   --glyph:rgba(255,255,255,.92);--seg-track:rgba(255,255,255,.20)}
 
@@ -295,6 +297,29 @@ p{text-wrap:pretty}
   .mcard .dwx{width:42px;height:42px}
   .mcard .dhead{padding:20px 24px}
   .mcard .ddate{padding:24px 24px}
+  /* ---- live drawer on mobile: the REAL engine card, moved into section 2 ---- */
+  .mlive{background:var(--card);transition:background-color .2s ease}
+  .mlive .bcard{width:100% !important;border-radius:0}
+  .mlive #listCard{width:100%;height:auto;flex:none;border-radius:0}
+  /* natural row heights (iOS parity) — no flex squeeze, fixed comfortable type */
+  .mlive #list{height:auto;overflow:visible;--fs:20px;--vpad:20px;--px:24px}
+  .mlive .buddy-row,.mlive .donezo-row{flex:0 0 auto}
+  .mlive .dhead{padding:20px 24px}
+  .mlive .ddate{padding:24px 24px}
+  .mlive .dnum{font-size:52px}
+  .mlive .dwk{font-size:21px}
+  .mlive .dwx{width:42px;height:42px}
+  /* iOS-style swipe tray: actions live behind the trailing edge, the row text
+     slides left over them. One row open at a time (JS). touch-action keeps
+     vertical scrolling with the page; only horizontal drags become swipes. */
+  .mlive .buddy-row,.mlive .donezo-row{touch-action:pan-y}
+  .mlive .rtxt,.mlive .dz{position:relative;z-index:1;background:var(--card);transition:transform .2s ease-out, background-color .2s ease}
+  .mlive .acts{position:absolute;top:0;bottom:0;right:0;left:auto;transform:translate(100%,0);
+    transition:transform .2s ease-out;opacity:1;flex-direction:row;gap:0;align-items:stretch}
+  .mlive .acts button{width:58px;height:auto;border-radius:0;background:var(--surface-hover);border-left:1px solid var(--line)}
+  .mlive .row-open .acts{transform:translate(0,0)}
+  .mlive .row-open .rtxt,.mlive .row-open .dz{transform:translateX(calc(-1*var(--trayw,174px)))}
+
   /* footer winking icon (thinner stroke) — near full content-width, per Figma (384/400).
      Cropped at the page bottom edge (Figma 69:1242): the face runs off-screen,
      so the section clips it instead of padding under it. */
@@ -558,6 +583,8 @@ function render(){
   const lvl=warnLevel();
   drawer.classList.toggle('lvl1', lvl===1);
   drawer.classList.toggle('lvl2', lvl===2);
+  const ml=document.getElementById('mLive');   // mobile host mirrors escalation
+  if(ml){ ml.classList.toggle('lvl1', lvl===1); ml.classList.toggle('lvl2', lvl===2); }
 
   const flipPrev = !sheetOpen ? captureFlip() : null;
 
@@ -588,7 +615,7 @@ function buildRow(it){
   txt.className='rtxt'+(it.state==='done'?' done':'')+((!it.text&&it.state!=='done')?' empty':'');
   txt.dataset.tid=it.id; txt.textContent=it.text||'';
   if(it.state!=='done'){
-    txt.addEventListener('mousedown',()=>{ if(editingId===it.id) return; editingId=it.id; txt.setAttribute('contenteditable','true'); txt.classList.remove('empty'); });
+    txt.addEventListener('mousedown',()=>{ if(editingId===it.id) return; if(row.classList.contains('row-open')) return; editingId=it.id; txt.setAttribute('contenteditable','true'); txt.classList.remove('empty'); });
     txt.addEventListener('input',()=>{ it.text=txt.textContent.trim(); });
     txt.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); txt.blur(); } });
     txt.addEventListener('blur',()=>{ it.text=txt.textContent.trim(); txt.removeAttribute('contenteditable'); editingId=null; if(!it.text){ state.items=state.items.filter(x=>x.id!==it.id); } save(); render(); });
@@ -599,6 +626,7 @@ function buildRow(it){
   acts.appendChild(mkBtn(SLEEP,'Move to Future',()=>sleepItem(it.id)));
   acts.appendChild(mkBtn(XLG,'Remove',()=>removeItem(it.id)));
   row.appendChild(acts);
+  if(isMobile()) attachSwipe(row);
   return row;
 }
 function buildDonezo(it){
@@ -610,6 +638,7 @@ function buildDonezo(it){
   const acts=document.createElement('div'); acts.className='acts';
   acts.appendChild(mkBtn(UNDO,'Restore to list',()=>restoreItem(it.id)));
   row.appendChild(acts);
+  if(isMobile()) attachSwipe(row);
   return row;
 }
 function buildAddRow(first){
@@ -626,6 +655,7 @@ function mkBtn(icon,title,fn){ const b=document.createElement('button'); b.title
 /* ---------------- fit: squeeze padding (22→10) then font (24→15) ---------------- */
 const FIT={CEIL:24,FLOOR:15,PADMAX:22,PADMIN:10};
 function fit(){
+  if(document.getElementById('mLive')){ list.classList.remove('tight'); return; }   // mobile: natural row heights, CSS-fixed type
   const H=list.clientHeight; if(H<=0) return;
   const kids=[...list.children]; if(!kids.length) return;
   const req=(fs,vp)=>{ list.style.setProperty('--fs',fs+'px'); list.style.setProperty('--vpad',vp+'px');
@@ -937,6 +967,10 @@ function maybeAdvanceAfterFirstAdd(){
     slide1Base=-1;
     setTimeout(()=>{ if(scrollSlide===1) go(2); }, 650);    // beat to see it land
   }
+  if(mLiveBase>=0 && !editingId && realCount()>mLiveBase){   // mobile: first add advances the story
+    mLiveBase=-1;
+    setTimeout(()=>{ const s=document.querySelectorAll('#mobile .msec')[2]; s&&s.scrollIntoView({behavior:'smooth'}); },650);
+  }
   if(scrollSlide===3 && slide3Base>=0 && donezoCount()>slide3Base){
     slide3Base=-1;
     setTimeout(()=>{ if(scrollSlide===3) go(4); }, 4200);   // confetti + Donezo morph play out
@@ -978,7 +1012,7 @@ function buildMobile(){
     body.querySelectorAll('#addTaskBtn,#addTaskBtn2').forEach(el=>el.remove());
     body.querySelectorAll('.btn,.nudge,.form,.ok').forEach(el=>el.style.cssText='');
     sec.append(h,hr,body);
-    if(s.card) sec.appendChild(buildMobileCard());
+    if(s.card) sec.appendChild(mountLiveCard());   // the REAL engine card, moved (not cloned)
     if(s.idx===2) sec.appendChild(buildMobileRedCard());   // static full-red state
     if(s.idx===3) sec.appendChild(buildMobileDonezo());    // static Donezo rows
     if(s.idx===SIGNUP_SLIDE){
@@ -1036,6 +1070,53 @@ function buildMobileCard(){
   listCopy.innerHTML=tasks.map((t,i)=>`<div style="padding:20px 32px;font-size:20px;font-weight:500;letter-spacing:-0.4px;${i?'border-top:1px solid #ededed;':''}">${t}</div>`).join('')
     +`<div style="padding:20px 32px;font-size:20px;font-weight:500;letter-spacing:-0.4px;color:rgba(0,0,0,.2);border-top:1px solid #ededed">Add +</div>`;
   c.appendChild(listCopy); return c;
+}
+
+/* ---- live mobile drawer (prototype) ----
+   Moves the real header card + list card out of the hidden desktop drawer and
+   into section 2. Same DOM, same engine — render()/save()/escalation all keep
+   working; only the host changes. One-way for the session: crossing the
+   desktop↔mobile breakpoint after boot needs a reload (acceptable here). */
+let mLiveBase=-1;
+function mountLiveCard(){
+  const wrap=document.createElement('div'); wrap.className='mcard mlive'; wrap.id='mLive';
+  wrap.appendChild(document.querySelector('#drawer .bcard'));
+  wrap.appendChild(document.getElementById('listCard'));
+  mLiveBase=realCount();
+  requestAnimationFrame(()=>render());   // re-render so rows pick up swipe wiring
+  return wrap;
+}
+
+/* ---- iOS-parity swipe (ported from the app's SwipeableRow) ----
+   Swipe LEFT reveals the trailing action tray (58px per action); the row text
+   slides over it. Opens past half the tray width, one row open at a time, tap
+   closes. Horizontal-intent detection keeps vertical drags with the page scroll. */
+let openRowEl=null;
+function closeOpenRow(){ if(openRowEl){ openRowEl.classList.remove('row-open'); openRowEl=null; } }
+function attachSwipe(row){
+  const slide=row.querySelector('.rtxt,.dz'), acts=row.querySelector('.acts');
+  if(!slide||!acts||!acts.children.length) return;
+  const trayW=acts.children.length*58;
+  row.style.setProperty('--trayw',trayW+'px');
+  let x0=0,y0=0,dx=0,horiz=null,wasOpen=false;
+  row.addEventListener('touchstart',e=>{ const t=e.touches[0]; x0=t.clientX; y0=t.clientY; dx=0; horiz=null;
+    wasOpen=row.classList.contains('row-open');
+    if(openRowEl&&openRowEl!==row) closeOpenRow(); },{passive:true});
+  row.addEventListener('touchmove',e=>{ const t=e.touches[0], mx=t.clientX-x0, my=t.clientY-y0;
+    if(horiz===null){ if(Math.abs(mx)<6&&Math.abs(my)<6) return; horiz=Math.abs(mx)>Math.abs(my); }
+    if(!horiz) return;
+    dx=Math.min(0,Math.max(-trayW,(wasOpen?-trayW:0)+mx));
+    slide.style.transition='none'; slide.style.transform=`translateX(${dx}px)`;
+    acts.style.transition='none'; acts.style.transform=`translate(${trayW+dx}px,0)`;
+  },{passive:true});
+  row.addEventListener('touchend',()=>{
+    slide.style.transition=''; slide.style.transform=''; acts.style.transition=''; acts.style.transform='';
+    if(horiz===null){ if(wasOpen){ row.classList.remove('row-open'); if(openRowEl===row) openRowEl=null; } return; }   // tap on open row → close
+    if(!horiz) return;
+    const willOpen=dx<-trayW*0.5;
+    row.classList.toggle('row-open',willOpen);
+    openRowEl=willOpen?row:(openRowEl===row?null:openRowEl);
+  });
 }
 /* static red (lvl2) card — the 6-task full state, list only */
 function buildMobileRedCard(){
