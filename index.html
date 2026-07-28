@@ -720,8 +720,8 @@ const CELEB_POOL=['🦜','👍','😀','😄','😁','😆','😊','🥳','🤩'
 const confettiEl=document.getElementById('confetti');
 let celebParts=[], celebRAF=null, celebLastT=0, celebTimer=null;
 function reducedMotion(){ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(_){ return false; } }
-function fireConfetti(){                       // called on transition INTO done
-  if(reducedMotion()) return;
+function fireConfetti(force){                  // called on transition INTO done
+  if(!force && reducedMotion()) return;        // force: the signup moment always celebrates
   clearTimeout(celebTimer); confettiEl.innerHTML=''; celebParts=[]; if(celebRAF){ cancelAnimationFrame(celebRAF); celebRAF=null; }
   const rad=d=>d*Math.PI/180, now=performance.now();
   const ox=innerWidth-40, oy=innerHeight-24;    // bottom-right origin
@@ -994,10 +994,14 @@ function buildMobile(){
   const setStickH=()=>{ const h=stick.offsetHeight; space.style.height=h+'px';
     document.documentElement.style.setProperty('--stickH', h+'px'); };
   requestAnimationFrame(setStickH); addEventListener('resize',setStickH);
-  // iOS keyboard pans the layout viewport; pin the bar to the VISUAL viewport
+  // iOS keyboard pans the layout viewport; pin the bar to the VISUAL viewport.
+  // resize-only + rAF-throttled — listening to vv 'scroll' made the bar chase
+  // every scroll event during the keyboard animation, which read as jitter.
   if(window.visualViewport){
-    const pin=()=>{ stick.style.top=visualViewport.offsetTop+'px'; };
-    visualViewport.addEventListener('resize',pin); visualViewport.addEventListener('scroll',pin);
+    let raf=null;
+    const pin=()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=null;
+      stick.style.top=visualViewport.offsetTop+'px'; }); };
+    visualViewport.addEventListener('resize',pin);
   }
 
   // touch tooltips: tap an underlined term → tooltip for 2s, then fade (no hover on mobile)
@@ -1057,6 +1061,14 @@ function buildMobile(){
       mKindaSec={sec,h,body};
       const form=body.querySelector('.form');
       if(form) form.onsubmit=e=>{ e.preventDefault(); mobileSignup(mKindaSec, topIcon); };
+      // when the keyboard opens, park the form 24px above it (iOS pans
+      // unpredictably on its own — we position deliberately once it settles)
+      const fld=form&&form.querySelector('.field');
+      if(fld&&window.visualViewport) fld.addEventListener('focus',()=>{ setTimeout(()=>{
+        const vv=visualViewport;
+        const d=form.getBoundingClientRect().bottom-(vv.offsetTop+vv.height-24);
+        if(Math.abs(d)>4) scrollBy({top:d,behavior:'smooth'});
+      },400); });
       if(state.signedUp) applyMobileBoomski(mKindaSec, topIcon, false);
     }
     m.appendChild(sec);
@@ -1086,13 +1098,18 @@ function applyMobileBoomski(ref, icon, animate){
     [ref.h, nb].forEach(el=>{ el.style.opacity='0'; el.style.transform='translateX(-8px)';
       el.animate([{opacity:0,transform:'translateX(-8px)'},{opacity:1,transform:'none'}],
         {duration:360,easing:'cubic-bezier(0.16,1,0.3,1)',fill:'forwards'}); });
-    icon.classList.remove('pop'); void icon.offsetWidth; icon.classList.add('pop');
+    // no 'pop' here: the scale keyframe fought the tilt transition and the
+    // keyboard-close reposition — three transforms at once read as jitter.
+    // The wink + tilt carry the moment on their own.
   }
 }
 function mobileSignup(ref, icon){
   if(state.signedUp){ return; }
   state.signedUp=true; save();
-  fireConfetti();                       // celebration bursts behind the fixed icon (z-order)
+  const f=ref.body.querySelector('.field'); if(f) f.blur();   // drop the keyboard first
+  // fire after the keyboard settles: the burst origin (layout bottom-right) sits
+  // behind the keyboard at submit time. force=true — this moment always celebrates.
+  setTimeout(()=>fireConfetti(true), 450);
   applyMobileBoomski(ref, icon, true);
 }
 
