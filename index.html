@@ -267,8 +267,17 @@ p{text-wrap:pretty}
   #mStick{position:sticky;top:0;z-index:10;padding:22px 0 14px;
     background:linear-gradient(#fff 66%, rgba(255,255,255,0))}
   #mStick svg{width:56px;height:56px;display:block}
-  .msec{padding:84px 0}          /* sections separated by whitespace alone (+80px total) */
-  .msec:first-of-type{padding-top:12px}
+  .msec{padding:40px 0}          /* 80px of whitespace between sections */
+  /* hero: first section fills the first viewport — heading + copy up top,
+     button pinned to the bottom edge. svh so the iOS URL bar doesn't lie.
+     (.mhero class set in buildMobile — :first-of-type can't work here because
+     the sticky icon div is the first div sibling.) */
+  .mhero{padding-top:12px;box-sizing:border-box;min-height:calc(100svh - 92px);
+    display:flex;flex-direction:column}
+  .mhero .mbody{display:flex;flex-direction:column;flex:1}
+  .mhero .mbody .btn{margin-top:auto;margin-bottom:28px;align-self:flex-start}
+  /* on mobile the next section is BELOW — the hero arrow points down */
+  .mhero .btn svg{transform:rotate(90deg) !important}
   .mh1{font-size:calc(var(--mh1)*1px);font-weight:500;letter-spacing:-0.02em;line-height:1.05;margin:0}
   .mrule{border:0;border-top:1px solid var(--line);margin:24px 0}
   .mbody{font-size:calc(var(--mbody)*1px)}
@@ -960,7 +969,7 @@ function buildMobile(){
   const secs=[0,1,2,3,4,5].map(i=>({idx:i, h:heads[i].textContent, body:bodies[i].cloneNode(true), card:i===1}));
   let mKindaSec=null;
   secs.forEach(s=>{
-    const sec=document.createElement('div'); sec.className='msec';
+    const sec=document.createElement('div'); sec.className='msec'+(s.idx===0?' mhero':'');
     const h=document.createElement('h2'); h.className='mh1'; h.textContent=s.h;
     const hr=document.createElement('hr'); hr.className='mrule';
     const body=s.body; body.className='mbody'; body.style.cssText='';
