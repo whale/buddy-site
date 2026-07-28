@@ -1,0 +1,64 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e8]:
+    - img "Buddy" [ref=f1e9] [cursor=pointer]
+    - generic [ref=f1e21]:
+      - heading "Getting ambitious?" [level=1] [ref=f1e180]
+      - separator [ref=f1e25]
+      - generic [ref=f1e181]:
+        - paragraph [ref=f1e182]: Add a fifth thing and Buddy blushes. A sixth? Full red. A seventh — he simply won't. Limits, lovingly enforced.
+        - paragraph [ref=f1e183]: Try it. Fill him up.
+  - complementary [ref=f1e44]:
+    - generic [ref=f1e45]:
+      - generic [ref=f1e46]:
+        - generic [ref=f1e47]:
+          - button "Pin open" [ref=f1e48] [cursor=pointer]
+          - button "Future" [ref=f1e51] [cursor=pointer]
+        - button "Buddy" [ref=f1e54] [cursor=pointer]
+      - generic [ref=f1e57]:
+        - generic [ref=f1e58]: "24"
+        - generic [ref=f1e59]:
+          - generic [ref=f1e60]: Thursday
+          - generic [ref=f1e61]: November
+    - generic [ref=f1e66]:
+      - generic [ref=f1e67]:
+        - generic [ref=f1e322]:
+          - generic [ref=f1e323]: Water the plants
+          - generic [ref=f1e324]:
+            - button "Mark done" [ref=f1e325] [cursor=pointer]
+            - button "Move to Future" [ref=f1e328] [cursor=pointer]
+            - button "Remove" [ref=f1e332] [cursor=pointer]
+        - generic [ref=f1e335]:
+          - generic [ref=f1e336]: Reply to Sam
+          - generic [ref=f1e337]:
+            - button "Mark done" [ref=f1e338] [cursor=pointer]
+            - button "Move to Future" [ref=f1e341] [cursor=pointer]
+            - button "Remove" [ref=f1e345] [cursor=pointer]
+        - generic [ref=f1e348]:
+          - generic [ref=f1e349]: Ship the thing
+          - generic [ref=f1e350]:
+            - button "Mark done" [ref=f1e351] [cursor=pointer]
+            - button "Move to Future" [ref=f1e354] [cursor=pointer]
+            - button "Remove" [ref=f1e358] [cursor=pointer]
+        - generic [ref=f1e361]:
+          - generic [ref=f1e362]: Try Buddy out
+          - generic [ref=f1e363]:
+            - button "Mark done" [ref=f1e364] [cursor=pointer]
+            - button "Move to Future" [ref=f1e367] [cursor=pointer]
+            - button "Remove" [ref=f1e371] [cursor=pointer]
+        - generic [ref=f1e374]:
+          - generic [ref=f1e375]: Call the bank
+          - generic [ref=f1e376]:
+            - button "Mark done" [ref=f1e377] [cursor=pointer]
+            - button "Move to Future" [ref=f1e380] [cursor=pointer]
+            - button "Remove" [ref=f1e384] [cursor=pointer]
+        - generic [ref=f1e389]:
+          - button "Mark done" [ref=f1e390] [cursor=pointer]
+          - button "Move to Future" [ref=f1e393] [cursor=pointer]
+          - button "Remove" [ref=f1e397] [cursor=pointer]
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - button "Future"
+              - button "Done"
+            - button "Close"
