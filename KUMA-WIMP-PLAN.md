@@ -8,9 +8,11 @@ Repackage the Buddy landing/beta site as **Kuma** — the first in a series of
 "funny little apps" whose real job is to get attention for **WIMP** (the decaf
 brand). Same site design, WIMP-flavoured (Kuma icon + WIMP orange accent). It
 lives at a `wimpdecaf.com` subdomain, fully headless: **custom site on Vercel +
-Ghost for newsletter/members + Shopify for money**. The app is **pay-what-you-want**;
-pay **$23+** and you get the app free **+ a coupon for a free bag of WIMP + free
-shipping** — turning an app download into a coffee customer.
+Ghost for newsletter/members + Polar for app money + Shopify for coffee**. The app
+is **pay-what-you-want** (min $0, default $10); pay **$23+** and you get the app
+free **+ a coupon for a free bag of WIMP + free shipping** — turning an app
+download into a coffee customer. Every purchase (even $0) delivers a **sync pass**.
+Money source of truth: `buddy/PAYMENT-PLAN.md` (decided 2026-07-15).
 
 ---
 
@@ -70,15 +72,16 @@ domain, and the CTA (email signup → pay-what-you-want purchase).
 ```
                  kuma.wimpdecaf.com  (custom site, Vercel)
                         │
-        ┌───────────────┼────────────────┐
-        ▼               ▼                 ▼
-   SHOPIFY          GHOST            (static app)
-  (headless)       (headless)        the download
-   the money        newsletter        (GitHub release
-   pay-what-        + members         DMG / .app)
-   you-want         + blog
-   coupon +         (WIMP + Kuma
-   free ship        newsletters)
+        ┌───────────────┼────────────────┬────────────────┐
+        ▼               ▼                ▼                ▼
+    POLAR           GHOST           SHOPIFY         (static app)
+  (merchant       (headless)       (headless)       the download
+   of record)      newsletter      coffee only:     (GitHub release
+   app money:      + members       the free-bag      DMG / .app)
+   pay-what-       + blog          coupon, minted
+   you-want,       (WIMP + Kuma    via Admin API
+   sync pass       newsletters)    on $23+ orders
+   in receipt
 ```
 
 - **Site:** the existing custom build, moved to `kuma.wimpdecaf.com` on Vercel.
@@ -86,8 +89,12 @@ domain, and the CTA (email signup → pay-what-you-want purchase).
 - **Ghost (headless):** WIMP's Ghost runs the newsletter + blog. Kuma gets its
   **own newsletter** ("Kuma" / "WIMP Labs") so its emails never mix with the main
   WIMP list, plus a `kuma` label + per-release labels.
-- **Shopify (headless):** handles the pay-what-you-want checkout, issues the
-  free-bag coupon + free-shipping discount. (WIMP's store is already Shopify.)
+- **Polar (merchant of record):** handles the pay-what-you-want app checkout
+  (true PWYW slider, min $0, default $10) and carries sales tax. Its webhook
+  (a Vercel function in this repo) mints the sync pass and, on $23+ orders,
+  creates the coffee coupon.
+- **Shopify (headless):** coffee only. WIMP's existing store; the webhook uses
+  the Admin API to mint a single-use free-bag + free-shipping discount code.
 - **The app binary:** the public GitHub release (DMG / `.app.tar.gz`) — unchanged;
   the site/coupon email links to it.
 
@@ -103,15 +110,17 @@ integration). I could not find WIMP Ghost credentials in `secrets.env` (only
 
 | You pay… | You get |
 |----------|---------|
-| < $23    | The app (download link) |
-| **$23+** | The app **+ a coupon for a free bag of WIMP + free shipping** |
+| $0+      | The app (download link) **+ a sync pass** |
+| **$23+** | All of the above **+ a coupon for a free bag of WIMP + free shipping** |
 
-- **Where the money runs:** Shopify (a name-your-price / pay-what-you-want
-  product, min $0). On order ≥ $23, fire a **single-use discount code** = free
-  bag + free shipping (Shopify discount, or an automatic order-level free-gift).
-- **Delivery of the app:** post-purchase → download link (Shopify order
-  confirmation and/or a Ghost/transactional email). The link points at the public
-  release.
+- **Where the money runs:** Polar (PWYW, min $0, default $10 — merchant of
+  record). On order ≥ $23, the webhook mints a **single-use Shopify discount
+  code** = free bag + free shipping.
+- **Delivery of the app:** post-purchase email → download link **+ the sync
+  pass** (Polar receipt and/or a Ghost/transactional email). The link points at
+  the public release. The pass is required for sync from day one (founder
+  decision 2026-07-15) — the pass backend in `whale/buddy` ships **before** this
+  site's commerce phase.
 - **List capture:** the purchaser's email → WIMP Ghost, subscribed to the **Kuma
   newsletter** (for future release emails), labelled `kuma`.
 
@@ -120,10 +129,13 @@ pay-what-you-want, access is likely **instant on purchase**, not wave-gated. A
 pre-launch **waitlist** (free email capture → "we're live" email) can still front
 it if you want a launch moment.
 
-**→ The payment mechanics (exact Shopify product setup, coupon rules, tax, refund
-policy, price anchoring) are being worked out in a separate session. This plan
-just leaves the hooks: a Shopify "Buy Kuma" checkout URL the site's CTA points at,
-and a webhook/Zapier path Shopify → Ghost to add the buyer to the Kuma list.**
+**→ The payment mechanics are DECIDED (2026-07-15) and live in
+`buddy/PAYMENT-PLAN.md`** — Polar checkout, price-point voice labels ($0 "tell
+one person about WIMP, we trust you" / $10 default / $23+ "you just bought
+coffee"), no subscription ever, no review-gating (FTC), honor-system sharing,
+and the pass-card-in-the-coffee-bag reverse loop. This plan holds the site-side
+hooks: the Polar checkout URL the CTA points at, and the webhook function
+(pass mint → Shopify coupon → Ghost subscribe).
 
 ---
 
@@ -188,11 +200,12 @@ Keep the current site's structure and interactions. Change:
 - [ ] Point Ghost integration at the **WIMP** Ghost; create the Kuma newsletter +
       `kuma` label.
 
-**Phase 3 — commerce (coordinated with the payment session)**
-- [ ] Shopify pay-what-you-want product + $23 free-bag/free-ship coupon rule.
-- [ ] Site CTA (currently email form) → Shopify checkout.
-- [ ] Shopify → Ghost path (webhook/Zapier) to add buyers to the Kuma list.
-- [ ] Post-purchase "You've got Kuma" email (download + coupon).
+**Phase 3 — commerce (DEPENDS ON: pass backend shipping in `whale/buddy` first)**
+- [ ] Polar PWYW product (min $0, default $10) + price-point voice labels.
+- [ ] Site CTA (currently email form) → Polar checkout.
+- [ ] Webhook function (Vercel, this repo): mint pass → Shopify coupon (≥$23,
+      Admin API) → subscribe buyer to the Kuma list in Ghost.
+- [ ] Post-purchase "You've got Kuma" email (download + **pass** + coupon).
 
 **Phase 4 — launch**
 - [ ] End-to-end test purchase (<$23 and ≥$23 paths).
@@ -211,8 +224,8 @@ Keep the current site's structure and interactions. Change:
 5. **Escalation colour:** keep the app's real red, or recolour to WIMP orange?
 6. **Access model:** instant-on-purchase, or a pre-launch waitlist first?
 7. **`buddy.whale.fyi`:** retire, redirect, or keep as a dev/demo mirror?
-8. **Payment specifics:** land from the other session (Shopify product, coupon,
-   pricing, refund/tax) — this plan holds the hooks for them.
+8. ~~Payment specifics~~ **DECIDED 2026-07-15** → `buddy/PAYMENT-PLAN.md`
+   (Polar + Shopify coupon + passes from day one).
 
 ---
 

@@ -1,7 +1,11 @@
 # buddy-site — Project Rules
 
-Marketing landing page for Buddy. Single self-contained `index.html`, no build.
-Deployed static on Vercel at `buddy.whale.fyi`.
+Marketing landing page for Buddy (pivoting to **Kuma**, a WIMP release — see
+`KUMA-WIMP-PLAN.md`). Single self-contained `index.html`, no build.
+Deployed static on Vercel at `buddy.whale.fyi` (moving to `kuma.wimpdecaf.com`).
+
+**Ecosystem:** one of four related repos — `buddy/ECOSYSTEM.md` (in the app repo)
+maps the lanes. Money decisions live in `buddy/PAYMENT-PLAN.md`, not here.
 
 ## What this is
 
