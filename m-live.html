@@ -1,0 +1,1200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buddy</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Buddy — a calm macOS menu-bar focus app. Pick your top few each day; a right-edge drawer holds them, and turns red when you overcommit.">
+<meta property="og:title" content="Buddy">
+<meta property="og:description" content="The cutest, most constrained to-do list in history. For distraction-prone super-noticers.">
+
+<style>
+@font-face{font-family:'Geist';font-weight:100 900;font-style:normal;font-display:swap;src:url('assets/fonts/Geist-Variable.woff2') format('woff2');}
+
+:root{
+  --font:'Geist',-apple-system,BlinkMacSystemFont,sans-serif;
+  --red:#e5484d;
+
+  /* ---- type controls (live-tunable from the panel; these are your tuned values) ---- */
+  --h1: 36;        /* desktop headline px at scale 1 */
+  --h1lh: 1.1;     /* headline line-height */
+  --body: 18;      /* desktop body px at scale 1 */
+  --bodylh: 1.4;   /* body line-height */
+  --ref: 1580;     /* viewport width at which scale = 1.0 */
+  --smin: 0.9;     /* scale floor */
+  --smax: 1.35;    /* scale cap on big monitors */
+  --mh1: 28;       /* mobile headline px */
+  --mbody: 17;     /* mobile body px */
+
+  /* fluid scale — set from JS as a plain unitless number (CSS calc can't divide
+     100vw by a unitless number to get a ratio). */
+  --s: 1;
+
+  /* ---------- locked transition (your tuned values) ---------- */
+  --enter-x: 8px; --leave-x: 8px;
+  --t-enter: 300ms; --t-leave: 300ms; --gap: 200ms; --t-vert: 200ms;
+  --ease:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-vert: cubic-bezier(0.37, 0, 0.63, 1);
+
+  /* ---------- from the Mac app ---------- */
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --card:#fff; --ink:#000; --ink-dim:rgba(0,0,0,.45);
+  --chrome-ink:rgba(0,0,0,.45); --chrome-hover:rgba(0,0,0,.06);
+  --sel-bg:#000; --sel-ink:#fff; --line:#d9d9d9;
+  --addtxt:rgba(0,0,0,.20); --glyph:#8c8c8c; --seg-track:rgba(0,0,0,.05);
+  /* chroma is MULTIPLIED, not incremented — so a zero-chroma white surface stays
+     NEUTRAL grey (no pink), while a red surface keeps its chroma (stays vivid). */
+  --surface-hover: oklch(from var(--card) calc(l - 0.05) calc(c * 1.1) h);
+  --cta-hover:     oklch(from var(--sel-bg) calc(l - 0.05) calc(c * 1.1) h);
+
+  --dim:#6c6c6c;          /* Figma body colour */
+}
+
+*{box-sizing:border-box}
+html{overflow-y:scroll;scroll-behavior:smooth;scroll-snap-type:y mandatory}
+body{margin:0;font-family:var(--font);color:#000;background:#fff;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(229,72,77,.18)}
+.beat{height:100svh;scroll-snap-align:start;scroll-snap-stop:always}
+
+/* ================= copy column ================= */
+#stage{position:fixed;left:max(48px, calc((100vw - 416px - 32px)/2 - (400px*var(--s))/2));top:0;
+  width:calc(400px * var(--s));z-index:10}
+
+#mark{width:calc(96px * var(--s));height:calc(96px * var(--s));display:block;cursor:pointer;overflow:visible;
+  transition:transform .4s var(--ease-out)}
+#mark:hover{transform:rotate(-4deg) scale(1.05)}
+#mark g{transition:opacity .14s var(--ease-out)}
+#mark:hover .face-base{opacity:0}
+#mark:hover .face-wink{opacity:1}
+/* signup success: hold the wink + a one-shot celebratory pop */
+#mark.winking .face-base{opacity:0}
+#mark.winking .face-wink{opacity:1}
+#mark.pop{animation:winkPop .5s var(--ease-out)}
+@keyframes winkPop{0%{transform:scale(1) rotate(0)}40%{transform:scale(1.12) rotate(-6deg)}100%{transform:scale(1) rotate(0)}}
+
+#type{position:relative;margin-top:calc(24px * var(--s))}
+.slot{position:relative}
+.blk{position:absolute;top:0;left:0;width:100%;opacity:0;visibility:hidden;pointer-events:none;
+  will-change:transform,opacity}
+.blk.live{opacity:1;visibility:visible;pointer-events:auto;transform:none}
+#ruleWrap{position:relative}
+#rule{border:0;border-top:1px solid var(--line);margin:calc(30px*var(--s)) 0}
+
+.enter{visibility:visible;animation:enter var(--t-enter) var(--ease) both}
+@keyframes enter{from{opacity:0;transform:translateX(calc(-1 * var(--enter-x)))}to{opacity:1;transform:translateX(0)}}
+.leave{visibility:visible;animation:leave var(--t-leave) var(--ease) both}
+@keyframes leave{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(var(--leave-x))}}
+
+/* Figma type: headline 48 / body 24 / button 16 — × the live --s scale */
+h1{font-size:calc(var(--h1) * 1px * var(--s));line-height:var(--h1lh);font-weight:500;letter-spacing:-0.02em;margin:0}
+.blk.bd{font-size:calc(var(--body) * 1px * var(--s))}
+p{line-height:var(--bodylh);color:var(--dim);margin:0 0 calc(20px*var(--s));letter-spacing:-0.02em}
+p:last-of-type{margin-bottom:0}
+
+.tip{border-bottom:1px solid currentColor;cursor:help;position:relative;color:#000}
+.tip::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 12px);left:50%;translate:-50% 4px;
+  width:230px;padding:14px 16px;background:#000;color:#fff;border-radius:14px;font-size:14px;line-height:1.25;
+  text-align:center;opacity:0;pointer-events:none;z-index:5;
+  transition:opacity .18s var(--ease-out),translate .18s var(--ease-out)}
+.tip::before{content:'';position:absolute;bottom:calc(100% + 5px);left:50%;translate:-50% 4px;
+  border:7px solid transparent;border-top-color:#000;border-bottom:0;opacity:0;
+  transition:opacity .18s var(--ease-out),translate .18s var(--ease-out)}
+.tip:hover::after,.tip:hover::before{opacity:1;translate:-50% 0}
+
+/* pill padding matched to the Mac app's primary button (px-7 py-3 ≈ 28/12 at its 18px);
+   kept proportional to the landing button's 16px text → ~26/13, a proper 2:1 pill. */
+.btn{display:inline-flex;align-items:center;gap:calc(8px*var(--s));margin-top:calc(46px*var(--s));
+  background:var(--sel-bg);color:var(--sel-ink);border:0;border-radius:999px;
+  padding:calc(13px*var(--s)) calc(26px*var(--s));font:inherit;font-size:calc(16px*var(--s));font-weight:500;
+  letter-spacing:-0.02em;cursor:pointer;transition:background-color .15s ease, transform .16s var(--ease-out)}
+.btn:hover{background-color:#242424}   /* black pill can't darken — lighten on hover (Mac idiom) */
+.btn:active{transform:scale(.97)}
+.btn svg{width:calc(14px*var(--s));height:calc(14px*var(--s));transition:transform .18s var(--ease-out)}
+.btn:hover svg{transform:translateX(2px)}
+.nudge{display:inline-flex;align-items:center;gap:calc(8px*var(--s));margin-top:calc(46px*var(--s));color:var(--red);
+  font:inherit;font-size:calc(var(--body)*1px*var(--s));font-weight:500;letter-spacing:-0.02em;cursor:pointer;background:none;border:0;padding:0}
+.nudge:active{transform:scale(.97)}
+.nudge-hint{color:var(--red) !important;font-weight:500}
+/* no runts: balance evens heading lines; pretty keeps a lone word off the last line */
+h1,.mh1{text-wrap:balance}
+p{text-wrap:pretty}
+.nudge svg{width:calc(16px*var(--s));height:calc(16px*var(--s));transition:transform .18s var(--ease-out)}
+.nudge:hover svg{transform:translateX(3px)}
+/* align-items:center — NOT the default stretch, which makes a flex:1 <input> compute
+   a runaway height (measured 68px vs its natural 45px). center keeps both natural. */
+.form{display:flex;align-items:center;gap:calc(12px*var(--s));margin-top:calc(46px*var(--s))}
+.field{flex:1;min-width:0;border:1px solid var(--line);border-radius:999px;
+  padding:calc(13px*var(--s)) calc(22px*var(--s));line-height:1.2;
+  font:inherit;font-size:calc(16px*var(--s));letter-spacing:-0.02em;outline:none;transition:border-color .18s var(--ease-out)}
+.field::placeholder{color:var(--addtxt)}
+.field:focus{border-color:#000}
+.form .btn{margin-top:0;flex-shrink:0}
+.ok{display:flex;align-items:center;gap:calc(12px*var(--s));font-size:calc(var(--body)*1px*var(--s));color:var(--dim)}
+.ok svg{width:calc(20px*var(--s));height:calc(20px*var(--s));color:#000}
+
+/* gray arrow (Figma 95:8) pointing at the drawer's Add + row on slide 2.
+   Position tracked per frame from the live addrow rect, so it rides the drawer
+   slide-in, list re-renders, and resizes. Desktop only — hidden with the drawer
+   on mobile. z-index above the drawer (50); pointer-events off so it never blocks. */
+#taskArrow{color:#000;transition:color .2s ease;position:fixed;left:0;top:0;z-index:60;pointer-events:none;
+  opacity:0;transition:opacity .35s var(--ease-out)}
+#taskArrow.show{opacity:1}
+#taskArrow.hot{color:var(--red)}   /* escalation: arrow blushes with the drawer */
+/* elongate 4px toward the card and back — tail stays put, head reaches.
+   Animated on the inner <g> (scaleX from the left edge) because JS owns the
+   outer svg's transform for positioning. 66px × 1.0605 ≈ +4px. */
+#taskArrow g{transform-box:view-box;transform-origin:left center;
+  animation:arrowReach .9s ease-in-out infinite alternate}
+@keyframes arrowReach{from{transform:scaleX(1)}to{transform:scaleX(1.0605)}}
+@media (prefers-reduced-motion:reduce){ #taskArrow g{animation:none} }
+
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .enter,.leave{animation:none} }
+
+/* ================= drawer — native size, mirrors the Mac build ================= */
+/* re-declare --surface-hover ON the drawer so its var(--card) resolves against the
+   drawer's OWN --card (white at lvl0, red at lvl2) — not :root's fixed white.
+   .mlive is the mobile host for the SAME live card (the DOM moves there), so every
+   token/escalation rule targets both. */
+#drawer,.mlive{--surface-hover: oklch(from var(--card) calc(l - 0.05) calc(c * 1.1) h)}
+#drawer{position:fixed;top:0;right:0;z-index:50;height:100vh;width:416px;
+  display:flex;flex-direction:column;align-items:flex-end;gap:8px;padding:8px;transform-origin:right center;
+  filter:drop-shadow(0 1px 4px rgba(0,0,0,.04)) drop-shadow(0 6px 16px rgba(0,0,0,.06)) drop-shadow(0 14px 34px rgba(0,0,0,.09));
+  transition:transform .48s var(--ease-out), opacity .48s var(--ease-out)}
+#drawer[data-open="0"]{opacity:0;transform:translateX(22px) scale(.975);pointer-events:none}
+#drawer.lvl1,.mlive.lvl1{--ink:var(--red);--ink-dim:rgba(229,72,77,.65);--chrome-ink:var(--red);
+  --sel-bg:var(--red);--sel-ink:#fff;--addtxt:rgba(229,72,77,.45);--glyph:var(--red)}
+#drawer.lvl2,.mlive.lvl2{--card:var(--red);--ink:#fff;--ink-dim:rgba(255,255,255,.6);--chrome-ink:#fff;--chrome-hover:rgba(0,0,0,.18);
+  --sel-bg:#fff;--sel-ink:var(--red);--line:rgba(255,255,255,.30);--addtxt:rgba(255,255,255,.60);
+  --glyph:rgba(255,255,255,.92);--seg-track:rgba(255,255,255,.20)}
+
+/* mode switcher — site chrome under the card, not part of the app mirror.
+   gap(8) + margin(8) = 16px breathing room above the links. */
+#modeSwitch{display:flex;gap:8px;width:400px;margin-top:8px;flex-shrink:0}
+#modeSwitch button{flex:1;background:none;border:1px solid #e5e5e5;border-radius:999px;padding:9px 0;
+  font:inherit;font-size:12px;letter-spacing:-0.1px;color:rgba(0,0,0,.35);cursor:pointer;
+  transition:color .15s ease,border-color .15s ease}
+#modeSwitch button:hover{color:rgba(0,0,0,.65)}
+#modeSwitch button.sel{color:rgba(0,0,0,.8);border-color:#ccc}
+
+.bcard{width:400px;flex-shrink:0;background:var(--card);border-radius:24px;overflow:hidden;transition:background-color .2s ease}
+.dhead{display:flex;align-items:center;justify-content:space-between;padding:24px 32px}
+.dhead .chr{display:flex;align-items:center;gap:8px}
+.chrome-btn{width:39px;height:39px;display:grid;place-items:center;border-radius:999px;border:0;background:transparent;
+  color:var(--chrome-ink);cursor:pointer;transition:color .2s ease, background-color .15s ease}
+.chrome-btn:hover{background:var(--chrome-hover)}
+.chrome-btn.sel{background:var(--sel-bg);color:var(--sel-ink)}
+.appTitle{font-size:18px;letter-spacing:-0.36px;color:var(--ink-dim);background:none;border:0;font-family:inherit;cursor:pointer}
+.divider{height:1px;width:100%;background:var(--line)}
+.ddate{display:flex;align-items:flex-end;justify-content:space-between;padding:32px 26px 32px 32px}
+.dleft{display:flex;align-items:flex-end;gap:12px}
+.dnum{font-size:62px;font-weight:500;letter-spacing:-1.24px;line-height:1;color:var(--ink)}
+.dcol{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.dwk{font-size:24px;font-weight:500;letter-spacing:-0.48px;line-height:1;color:var(--ink)}
+.dmo{font-size:18px;letter-spacing:-0.36px;line-height:1;color:var(--ink-dim)}
+.dwx{width:50px;height:50px;display:grid;place-items:center;color:var(--ink);flex-shrink:0}
+
+#listCard{position:relative;width:400px;flex:1;min-height:0;background:var(--card);border-radius:24px;overflow:hidden;transition:background-color .2s ease}
+#list{height:100%;display:flex;flex-direction:column;overflow:hidden;--px:32px;--fs:24px;--vpad:22px}
+
+.buddy-row,.donezo-row{display:flex;align-items:center;position:relative;overflow:hidden;transition:background-color .15s ease}
+.buddy-row{flex:1 1 auto;min-height:0;padding:var(--vpad) var(--px)}
+.donezo-row{flex:0 0 auto;padding:16px var(--px)}
+.buddy-row + .buddy-row,.donezo-row + .buddy-row,.buddy-row + .donezo-row,.donezo-row + .donezo-row{border-top:1px solid var(--line)}
+.buddy-row:hover,.donezo-row:hover{background:var(--surface-hover)}
+.rtxt{flex:1;min-width:0;font-size:var(--fs);font-weight:500;letter-spacing:-0.48px;line-height:1.2;color:var(--ink);
+  padding-right:44px;outline:none}
+.rtxt.done{text-decoration:line-through;color:var(--ink-dim)}
+.rtxt.empty:before{content:'Untitled';color:var(--addtxt)}
+.addrow{cursor:pointer}
+.addrow .addtxt{display:flex;gap:18px;font-size:var(--fs);font-weight:500;letter-spacing:-0.48px;color:var(--addtxt)}
+.dz{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1;padding-right:44px}
+.dz b{font-size:15px;font-weight:600;letter-spacing:-0.3px;color:var(--ink);flex-shrink:0}
+.dz s{font-size:15px;text-decoration:line-through;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.acts{position:absolute;top:50%;transform:translateY(-50%);right:20px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  opacity:0;transition:opacity .15s ease}
+.donezo-row .acts,.future-row .acts{flex-direction:row}
+/* squeezed list: rows are shorter than the 3-icon column (~100px), so the
+   column overflows the row. Flip to a horizontal row; fit() sets .tight. */
+#list.tight .buddy-row .acts{flex-direction:row;gap:2px;right:12px}
+.buddy-row:hover .acts,.donezo-row:hover .acts,.future-row:hover .acts{opacity:1}
+.acts button{width:30px;height:30px;display:grid;place-items:center;border-radius:999px;border:0;background:transparent;
+  color:var(--glyph);cursor:pointer;transition:background-color .15s ease}
+.acts button:hover{background:var(--chrome-hover)}
+
+/* Future / history sheet — slides up over the list card */
+#sheet{position:absolute;inset:0;background:var(--card);z-index:5;display:flex;flex-direction:column;
+  transform:translateY(100%);opacity:0;pointer-events:none;
+  transition:transform .42s var(--ease-drawer), opacity .3s ease}
+#sheet.open{transform:none;opacity:1;pointer-events:auto}
+.sheadwrap{flex-shrink:0}
+.shead{display:flex;align-items:center;justify-content:space-between;padding:0 20px 0 20px;height:68px}
+.seg{display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:var(--seg-track)}
+.seg button{min-height:38px;padding:0 16px;border:0;background:transparent;border-radius:999px;font:inherit;font-size:15px;
+  letter-spacing:-0.3px;color:var(--chrome-ink);cursor:pointer;transition:all .15s ease}
+.seg button.sel{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+#drawer.lvl2 .seg button.sel{color:var(--red)}
+#sheetBody{flex:1;min-height:0;overflow-y:auto}
+.future-row{display:flex;align-items:center;position:relative;overflow:hidden;padding:20px var(--px, 32px);
+  transition:background-color .15s ease}
+.future-row + .future-row{border-top:1px solid var(--line)}
+.future-row:hover{background:var(--surface-hover)}
+.ftitle{flex:1;min-width:0;font-size:24px;font-weight:500;letter-spacing:-0.48px;line-height:1.2;color:var(--ink);
+  padding-right:44px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fsent{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1;padding-right:44px}
+.fsent b{font-size:18px;font-weight:600;letter-spacing:-0.3px;color:var(--ink);flex-shrink:0}
+.fsent s{font-size:18px;text-decoration:none;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sheet-empty{padding:40px 32px;font-size:15px;letter-spacing:-0.32px;color:var(--ink-dim)}
+
+/* dots */
+#dots{position:fixed;left:28px;top:50%;translate:0 -50%;z-index:70;display:flex;flex-direction:column;gap:11px}
+#dots b{width:7px;height:7px;border-radius:99px;background:#dadada;cursor:pointer;transition:all .3s var(--ease)}
+#dots b.on{background:#000;height:20px}
+
+/* confetti */
+#confetti{position:fixed;inset:0;z-index:60;pointer-events:none;overflow:hidden}
+.parrot{position:absolute;font-size:22px;will-change:transform,opacity}
+
+/* ================= MOBILE ================= */
+#mobileWrap{display:none}
+@media (max-width:1024px), (pointer:coarse){
+  html{scroll-snap-type:none}
+  .beat, #dots, #drawer, #stage{display:none !important}
+  body{overflow-x:clip}          /* clip (not hidden) — hidden breaks position:sticky */
+  #mobileWrap{display:block}
+  #mobile{max-width:520px;margin:0 auto;padding:0 24px;position:relative}   /* no bottom pad — the winking face crops at the page edge */
+  /* single icon, pinned at the top — does NOT repeat per section */
+  #mStick{position:sticky;top:0;z-index:10;padding:22px 0 14px;
+    background:linear-gradient(#fff 66%, rgba(255,255,255,0))}
+  #mStick svg{width:56px;height:56px;display:block}
+  .msec{padding:40px 0}          /* 80px of whitespace between sections */
+  /* hero: first section fills the first viewport — heading + copy up top,
+     button pinned to the bottom edge. svh so the iOS URL bar doesn't lie.
+     (.mhero class set in buildMobile — :first-of-type can't work here because
+     the sticky icon div is the first div sibling.) */
+  .mhero{padding-top:12px;box-sizing:border-box;min-height:calc(100svh - 92px);
+    display:flex;flex-direction:column;justify-content:flex-end}   /* whole block rides the bottom */
+  .mhero .mbody .btn{margin-bottom:28px;align-self:flex-start}
+  /* on mobile the next section is BELOW — the hero arrow points down */
+  .mhero .btn svg{transform:rotate(90deg) !important}
+  .mh1{font-size:calc(var(--mh1)*1px);font-weight:500;letter-spacing:-0.02em;line-height:1.05;margin:0}
+  .mrule{border:0;border-top:1px solid var(--line);margin:24px 0}
+  .mbody{font-size:calc(var(--mbody)*1px)}
+  .mp{font-size:calc(var(--mbody)*1px);line-height:1.35;color:var(--dim);letter-spacing:-0.02em;margin:0 0 16px}
+  .mbody .btn,.mbody .nudge{margin-top:24px;font-size:17px}
+  .mbody .nudge{font-size:19px}
+  .mbody .form{margin-top:24px}
+  .mbody .field,.mbody .btn{font-size:16px}
+  .mbody .ok{font-size:19px}
+  /* interfaces match the text column width — no shadow, 1px grey stroke */
+  .mcard{width:100%;margin:24px 0 0;border-radius:24px;overflow:hidden;border:1px solid #e5e5e5}
+  .mcard .bcard{width:100% !important;border-radius:0}
+  .mcard .dnum{font-size:52px}
+  .mcard .dwk{font-size:21px}
+  .mcard .dwx{width:42px;height:42px}
+  .mcard .dhead{padding:20px 24px}
+  .mcard .ddate{padding:24px 24px}
+  /* ---- live drawer on mobile: the REAL engine card, moved into section 2 ---- */
+  .mlive{background:var(--card);transition:background-color .2s ease}
+  .mlive .bcard{width:100% !important;border-radius:0}
+  .mlive #listCard{width:100%;height:auto;flex:none;border-radius:0}
+  /* natural row heights (iOS parity) — no flex squeeze, fixed comfortable type */
+  .mlive #list{height:auto;overflow:visible;--fs:20px;--vpad:20px;--px:24px}
+  .mlive .buddy-row,.mlive .donezo-row{flex:0 0 auto}
+  .mlive .dhead{padding:20px 24px}
+  .mlive .ddate{padding:24px 24px}
+  .mlive .dnum{font-size:52px}
+  .mlive .dwk{font-size:21px}
+  .mlive .dwx{width:42px;height:42px}
+  /* iOS-style swipe tray: actions live behind the trailing edge, the row text
+     slides left over them. One row open at a time (JS). touch-action keeps
+     vertical scrolling with the page; only horizontal drags become swipes. */
+  .mlive .buddy-row,.mlive .donezo-row{touch-action:pan-y}
+  .mlive .rtxt,.mlive .dz{position:relative;z-index:1;background:var(--card);transition:transform .2s ease-out, background-color .2s ease}
+  .mlive .acts{position:absolute;top:0;bottom:0;right:0;left:auto;transform:translate(100%,0);
+    transition:transform .2s ease-out;opacity:1;flex-direction:row;gap:0;align-items:stretch}
+  .mlive .acts button{width:58px;height:auto;border-radius:0;background:var(--surface-hover);border-left:1px solid var(--line)}
+  .mlive .row-open .acts{transform:translate(0,0)}
+  .mlive .row-open .rtxt,.mlive .row-open .dz{transform:translateX(calc(-1*var(--trayw,174px)))}
+
+  /* footer winking icon (thinner stroke) — near full content-width, per Figma (384/400).
+     Cropped at the page bottom edge (Figma 69:1242): the face runs off-screen,
+     so the section clips it instead of padding under it. */
+  .mfoot{padding:96px 0 0;overflow:hidden}
+  .mfoot svg{width:88%;max-width:340px;height:auto;display:block;margin-bottom:-12%}
+}
+</style>
+</head>
+<body>
+
+<!-- 6 scroll slides; Boomski is the signup-success variant of slide 6, not its own slide -->
+<section class="beat"></section>
+<section class="beat"></section>
+<section class="beat"></section>
+<section class="beat"></section>
+<section class="beat"></section>
+<section class="beat"></section>
+
+<div id="stage">
+  <svg id="mark" viewBox="0 0 1268 1268" fill="none" aria-label="Buddy">
+    <g class="face-base">
+      <path d="M836.337 380.606V33.5381H885.675L1232.74 380.606V441.67H871.593L836.337 380.606Z" fill="#FF4342" stroke="#000" stroke-width="3.59"/>
+      <path d="M1234.07 434.069C1234.12 412.943 1229.99 392.016 1221.91 372.495C1213.83 352.974 1201.97 335.247 1187 320.336L947.801 81.1356C932.89 66.1703 915.162 54.3062 895.642 46.2279C876.121 38.1496 855.194 34.0172 834.068 34.069H167.402C132.039 34.069 98.1256 48.1165 73.1208 73.1214C48.1159 98.1262 34.0684 132.04 34.0684 167.402V1100.74C34.0684 1136.1 48.1159 1170.01 73.1208 1195.02C98.1256 1220.02 132.039 1234.07 167.402 1234.07H1100.73C1136.1 1234.07 1170.01 1220.02 1195.02 1195.02C1220.02 1170.01 1234.07 1136.1 1234.07 1100.74V434.069Z" fill="#fff"/>
+      <path d="M367.402 700.735H368.068M900.735 700.735H901.401M500.735 900.735C500.735 900.735 554.068 967.402 634.068 967.402C720.735 967.402 767.401 900.735 767.401 900.735M1234.07 434.069C1234.12 412.943 1229.99 392.016 1221.91 372.495C1213.83 352.974 1201.97 335.247 1187 320.336L947.801 81.1356C932.89 66.1703 915.162 54.3062 895.642 46.2279C876.121 38.1496 855.194 34.0172 834.068 34.069H167.402C132.039 34.069 98.1256 48.1165 73.1208 73.1214C48.1159 98.1262 34.0684 132.04 34.0684 167.402V1100.74C34.0684 1136.1 48.1159 1170.01 73.1208 1195.02C98.1256 1220.02 132.039 1234.07 167.402 1234.07H1100.73C1136.1 1234.07 1170.01 1220.02 1195.02 1195.02C1220.02 1170.01 1234.07 1136.1 1234.07 1100.74V434.069Z" stroke="#000" stroke-width="68.14" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M842.137 322.972L841.182 58.6248C841.134 45.3362 851.893 34.5381 865.182 34.5381H887.787C909.972 34.5381 931.16 43.7504 946.292 59.9745L1208.27 340.881C1224.85 358.654 1234.07 382.053 1234.07 406.357V418.538C1234.07 431.793 1223.32 442.538 1210.07 442.538H962.136C896.031 442.538 842.376 389.076 842.137 322.972Z" fill="#FF4342" stroke="#000" stroke-width="68"/>
+    </g>
+    <g class="face-wink" transform="translate(0,-1523)" opacity="0">
+      <path d="M836.337 1903.61V1556.54H885.675L1232.74 1903.61V1964.67H871.593L836.337 1903.61Z" fill="#FF4342" stroke="#000" stroke-width="3.59"/>
+      <path d="M1234.07 1989.07L834.068 1557.07H167.402C132.039 1557.07 98.1256 1571.12 73.1208 1596.12C48.1159 1621.13 34.0684 1655.04 34.0684 1690.4V2623.74C34.0684 2659.1 48.1159 2693.01 73.1208 2718.02C98.1256 2743.02 132.039 2757.07 167.402 2757.07H1100.73C1136.1 2757.07 1170.01 2743.02 1195.02 2718.02C1220.02 2693.01 1234.07 2659.1 1234.07 2623.74V1989.07Z" fill="#fff"/>
+      <path d="M367.402 2223.74H368.068M900.735 2223.74H901.401M1234.07 1989.07V2623.74C1234.07 2659.1 1220.02 2693.01 1195.02 2718.02C1170.01 2743.02 1136.1 2757.07 1100.73 2757.07H167.402C132.039 2757.07 98.1256 2743.02 73.1208 2718.02C48.1159 2693.01 34.0684 2659.1 34.0684 2623.74V1690.4C34.0684 1655.04 48.1159 1621.13 73.1208 1596.12C98.1256 1571.12 132.039 1557.07 167.402 1557.07H834.068L1234.07 1989.07Z" stroke="#000" stroke-width="68.14" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M499.145 2399.74C499.145 2399.74 552.479 2490.41 632.479 2490.41C719.146 2490.41 765.813 2399.74 765.813 2399.74M324.068 2262.01L406.387 2218.23M324.068 2174.54L406.387 2218.33M943.62 2265.01L861.301 2221.23L943.62 2177.54" stroke="#000" stroke-width="68.14" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M786.189 1901.92L785.171 1581.61C785.129 1568.33 795.886 1557.54 809.171 1557.54H832.031C854.073 1557.54 875.138 1566.63 890.254 1582.67L1207.94 1919.81C1224.72 1937.62 1234.07 1961.17 1234.07 1985.64V1997.54C1234.07 2010.79 1223.32 2021.54 1210.07 2021.54H906.188C840.063 2021.54 786.399 1968.04 786.189 1901.92Z" fill="#FF4342" stroke="#000" stroke-width="68"/>
+    </g>
+  </svg>
+
+  <div id="type">
+    <div class="slot" id="slotHead">
+      <h1 class="blk hd" data-i="0">Hey, this is Buddy.</h1>
+      <h1 class="blk hd" data-i="1">Phew! Just for today.</h1>
+      <h1 class="blk hd" data-i="2">Feeling ambitious?</h1>
+      <h1 class="blk hd" data-i="3">Wanna have a done party?</h1>
+      <h1 class="blk hd" data-i="4">Buddy is there when you need him. Hidden when you don't.</h1>
+      <h1 class="blk hd" data-i="5">K. Byeee!</h1>
+      <h1 class="blk hd" data-i="6">Boomski.</h1>
+    </div>
+    <div id="ruleWrap"><hr id="rule"></div>
+    <div class="slot" id="slotBody">
+      <div class="blk bd" data-i="0">
+        <p>Buddy is a micro-do-list for distraction-prone <span class="tip" data-tip="You notice everything. That's the gift and the problem.">super-noticers</span>. It's the cutest, easiest-to-use, constrained task list <span class="tip" data-tip="Bold claim. We're comfortable with it.">in history</span>.</p>
+        <button class="btn" data-go="1">Show me, please <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="blk bd" data-i="1">
+        <p>To hell with big list energy. Six things is the limit because size matters.</p>
+        <p>Go on — add something. Anything. That thing you shouldn't forget to do.</p>
+        <button class="btn" id="addTaskBtn">Add a task!</button>
+      </div>
+      <div class="blk bd" data-i="2">
+        <p>Try it. Add a 5th thing and Buddy blushes. See what happens when you add a 6th! That's it. Can't add more. Limits are our friends.</p>
+        <button class="btn" id="addTaskBtn2">Add another task</button>
+      </div>
+      <div class="blk bd" data-i="3">
+        <p>Hover a task and check it off. Party time. Everything you finish stacks up in today's done list. Feels good to spy on what you have done!</p>
+        <button class="btn" data-go="4">Next <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="blk bd" data-i="4">
+        <p>Tucked out of the way on the right of your screen until you forget what you were doing. Then just tap the right side and — whammo — relief in reminder form. You're welcome.</p>
+        <button class="btn" data-go="5">Okay, hide Buddy</button>
+      </div>
+      <div class="blk bd" data-i="5">
+        <p>If this is your thing, sign up and I'll send you a beta invite. Want it sooner? Post about my side project <span class="tip" data-tip="Decaf coffee for people with too much going on. Yes, really.">Wimp Decaf</span> somewhere public and I'll bump you up the list. Bribery, but decaffeinated.</p>
+        <form class="form" onsubmit="event.preventDefault();window.__signup&&window.__signup()">
+          <input class="field" type="email" placeholder="Email address" required>
+          <button class="btn" type="submit">Sign me up</button>
+        </form>
+      </div>
+      <div class="blk bd" data-i="6">
+        <div class="ok">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          You've been added to beta.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- exact vector from Figma node 95:8 (Vector 326) — do not redraw -->
+<svg id="taskArrow" aria-hidden="true" width="66.2372" height="31.5929" viewBox="0 0 66.2372 31.5929" fill="none" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+  <g><path d="M65.444 15.8858H0M50.3513 0.707107L65.53 15.8858M50.3513 30.8858L65.5301 15.7071" stroke="currentColor" stroke-width="2"/></g>
+</svg>
+
+<aside id="drawer" data-open="0">
+  <div class="bcard">
+    <div class="dhead">
+      <div class="chr">
+        <button class="chrome-btn" id="pinBtn" title="Pin open"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button>
+        <button class="chrome-btn" id="futBtn" title="Future"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg></button>
+      </div>
+      <button class="appTitle" id="appTitle">Buddy</button>
+    </div>
+    <div class="divider"></div>
+    <div class="ddate">
+      <div class="dleft">
+        <div class="dnum">24</div>
+        <div class="dcol"><div class="dwk">Thursday</div><div class="dmo">November</div></div>
+      </div>
+      <div class="dwx"><svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/><circle cx="12" cy="12" r="4"/></svg></div>
+    </div>
+  </div>
+
+  <div id="listCard">
+    <div id="list"></div>
+    <div id="sheet">
+      <div class="sheadwrap">
+        <div class="shead">
+          <div class="seg">
+            <button id="segFut" class="sel">Future</button>
+            <button id="segDone">Done</button>
+          </div>
+          <button class="chrome-btn" id="sheetClose" title="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="divider"></div>
+      </div>
+      <div id="sheetBody"></div>
+    </div>
+  </div>
+  <div id="modeSwitch">
+    <button data-mode="noticer" class="sel">Super Noticer mode</button>
+    <button data-mode="walter">Walter White mode</button>
+    <button data-mode="thunder">Thunder Cats mode</button>
+  </div>
+</aside>
+
+<div id="dots"></div>
+<div id="confetti"></div>
+<div id="mobileWrap"><div id="mobile"></div></div>
+
+<!-- ===================== TYPE TUNING PANEL ===================== -->
+<div id="tune" class="open">
+  <button id="tuneToggle" title="Tune type">Aa</button>
+  <div id="tuneBody">
+    <div class="tHead"><b>Type</b><span id="vpRead">—</span></div>
+    <div class="tGrp">Desktop</div>
+    <div class="tRow"><label>Headline</label><input type="range" id="c_h1" min="24" max="88" step="1"><b id="v_h1"></b></div>
+    <div class="tRow"><label>H&nbsp;line-ht</label><input type="range" id="c_h1lh" min="0.9" max="1.6" step="0.01"><b id="v_h1lh"></b></div>
+    <div class="tRow"><label>Body</label><input type="range" id="c_body" min="14" max="40" step="1"><b id="v_body"></b></div>
+    <div class="tRow"><label>B&nbsp;line-ht</label><input type="range" id="c_bodylh" min="1" max="1.8" step="0.01"><b id="v_bodylh"></b></div>
+    <div class="tGrp">Scale curve</div>
+    <div class="tRow"><label>1.0 at width</label><input type="range" id="c_ref" min="1100" max="2200" step="20"><b id="v_ref"></b></div>
+    <div class="tRow"><label>Max (big)</label><input type="range" id="c_smax" min="1" max="1.8" step="0.05"><b id="v_smax"></b></div>
+    <div class="tRow"><label>Min (small)</label><input type="range" id="c_smin" min="0.7" max="1" step="0.05"><b id="v_smin"></b></div>
+    <div class="tGrp">Mobile <span class="tHint">(resize narrow to preview)</span></div>
+    <div class="tRow"><label>Headline</label><input type="range" id="c_mh1" min="22" max="52" step="1"><b id="v_mh1"></b></div>
+    <div class="tRow"><label>Body</label><input type="range" id="c_mbody" min="14" max="30" step="1"><b id="v_mbody"></b></div>
+    <div class="tFoot"><button id="tReset">Reset</button><button id="tCopy">Copy CSS</button></div>
+  </div>
+</div>
+<style>
+#tune{position:fixed;right:20px;bottom:20px;z-index:200;font-family:var(--font);font-size:12px}
+#tuneToggle{width:44px;height:44px;border-radius:12px;border:1px solid #e2e2e2;background:rgba(255,255,255,.9);
+  backdrop-filter:blur(12px);font:600 16px var(--font);cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.10)}
+#tuneBody{position:absolute;right:0;bottom:52px;width:266px;background:rgba(255,255,255,.92);backdrop-filter:blur(16px);
+  border:1px solid #e5e5e5;border-radius:16px;padding:14px;box-shadow:0 12px 40px rgba(0,0,0,.14);display:none}
+#tune.open #tuneBody{display:block}
+#tune .tHead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+#tune .tHead b{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9a9a9a}
+#tune #vpRead{font-size:11px;color:#000;font-variant-numeric:tabular-nums}
+#tune .tGrp{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#b3b3b3;margin:10px 0 6px}
+#tune .tHint{text-transform:none;letter-spacing:0;color:#c4c4c4}
+#tune .tRow{display:grid;grid-template-columns:70px 1fr 40px;align-items:center;gap:8px;margin-bottom:6px}
+#tune .tRow label{color:#777;font-size:11px}
+#tune .tRow input[type=range]{width:100%;accent-color:#000;height:14px}
+#tune .tRow b{font-weight:500;font-size:11px;text-align:right;font-variant-numeric:tabular-nums}
+#tune .tFoot{display:flex;gap:7px;margin-top:11px;padding-top:11px;border-top:1px solid #ececec}
+#tune .tFoot button{flex:1;font:inherit;font-size:11px;border:1px solid #e0e0e0;background:#fff;border-radius:8px;
+  padding:7px;cursor:pointer;transition:background .15s}
+#tune .tFoot button:hover{background:#f2f2f2}
+</style>
+
+<script>
+/* ============================================================================
+   BUDDY ENGINE — a faithful port of the Mac app's core loop (dist/index.html).
+   Trimmed of Tauri / sync / weather / morning; keeps the interaction model
+   1:1 so the drawer FEELS like the real thing. Persists to localStorage
+   ('buddy.site.v1'), the same mechanism the Mac app uses.
+   ============================================================================ */
+const KEY='buddy.site.v1';
+const SOFT_CAP=5, HARD_CAP=6, DONEZO_DELAY=2000;
+const DONE_WORDS=['Donezo!','Done!','Done & Dusted!','Sorted!','Wrapped!','Handled!','Bagged!','Squared Away!','Locked In!','Ticked Off!','Checked Off!','Buttoned Up!','All Set!','Good To Go!','Cleared!','Settled!','Tidied!','Put To Bed!','Golden!','There It Is!','Ta-Da!','Voilà!','Finito!','Fin!','Shipped!'];
+
+let idc=0;
+const nid=()=> (Date.now().toString(36)+(idc++).toString(36)+Math.floor(Math.random()*1e6).toString(36)).toLowerCase();
+const newItem=(text='')=>({id:nid(),text,state:'neutral',doneAt:null,doneWord:null});
+const activeCount=()=>state.items.filter(i=>i.state!=='done').length;
+const warnLevel=()=>{const n=activeCount();return n>=HARD_CAP?2:n===SOFT_CAP?1:0;};
+const isDonezo=it=>it.state==='done'&&it.doneAt&&(Date.now()-it.doneAt)>=DONEZO_DELAY;
+
+let wordBag=[];
+function pickDoneWord(){ if(!wordBag.length){ wordBag=[...DONE_WORDS].sort(()=>Math.random()-0.5); } return wordBag.pop(); }
+
+let state={items:[],deferred:[]};
+function load(){
+  try{ const raw=localStorage.getItem(KEY); if(raw){ const o=JSON.parse(raw);
+    state.items=(o.items||[]).map(i=>({id:i.id||nid(),text:i.text||'',state:i.state==='done'?'done':'neutral',doneAt:i.doneAt||null,doneWord:i.doneWord||null}));
+    state.deferred=(o.deferred||[]).map(d=>({id:d.id||nid(),text:d.text||'',sent:!!d.sent}));
+    state.signedUp=!!o.signedUp; return true; } }catch(_){}
+  return false;
+}
+let saveTimer=null;
+function save(){ clearTimeout(saveTimer); saveTimer=setTimeout(()=>{
+  try{ localStorage.setItem(KEY, JSON.stringify({items:state.items,deferred:state.deferred,signedUp:!!state.signedUp})); }catch(_){}
+},200); }
+
+/* ---------------- operations (mirrors the app) ---------------- */
+let editingId=null, justAddedId=null, donezoEnterId=null, donezoTimers={};
+
+function addAndEdit(){ if(activeCount()>=HARD_CAP) return; const it=newItem(''); state.items.push(it); justAddedId=it.id; render(); requestAnimationFrame(()=>startEdit(it.id)); }
+function cycle(it){
+  const was=it.state;
+  if(it.state!=='done'){ it.state='done'; it.doneAt=Date.now(); if(!it.doneWord) it.doneWord=pickDoneWord(); }
+  else { if(activeCount()>=HARD_CAP) return; it.state='neutral'; it.doneAt=null; }
+  if(was!=='done'&&it.state==='done'){ fireConfetti(it.id); scheduleDonezo(it.id); }
+  save(); render();
+}
+function scheduleDonezo(id){ clearTimeout(donezoTimers[id]); donezoTimers[id]=setTimeout(()=>{
+  const it=state.items.find(x=>x.id===id); if(!it||it.state!=='done'||!it.doneAt) return; donezoEnterId=id; render();
+}, DONEZO_DELAY); }
+function restoreItem(id){ const it=state.items.find(x=>x.id===id); if(!it||it.state!=='done') return; if(activeCount()>=HARD_CAP) return; it.state='neutral'; it.doneAt=null; save(); render(); }
+function removeItem(id){ state.items=state.items.filter(x=>x.id!==id); save(); render(); }
+function sleepItem(id){ const it=state.items.find(x=>x.id===id); if(!it) return; state.deferred.push({id:nid(),text:it.text,sent:false}); state.items=state.items.filter(x=>x.id!==id); save(); render(); }
+function addDeferredToToday(id){ const d=state.deferred.find(x=>x.id===id); if(!d||d.sent) return; if(activeCount()>=HARD_CAP) return; state.items.push(newItem(d.text)); d.sent=true; save(); render(); }
+function unsendDeferred(id){ const d=state.deferred.find(x=>x.id===id); if(!d||!d.sent) return; d.sent=false; save(); render(); }
+function deleteDeferred(id){ state.deferred=state.deferred.filter(x=>x.id!==id); save(); render(); }
+
+/* ---------------- editing (contenteditable, blur commits, empty deletes) ---------------- */
+function startEdit(id){
+  const el=list.querySelector(`.rtxt[data-tid="${id}"]`); if(!el) return;
+  editingId=id; el.setAttribute('contenteditable','true'); el.classList.remove('empty'); el.focus();
+  const r=document.createRange(); r.selectNodeContents(el); r.collapse(false);
+  const s=getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+
+/* ---------------- icons (app, stroke 1.8) ---------------- */
+const CHECK='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+const SLEEP='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M9.5 16h5"/><path d="m12.5 14 2 2-2 2"/></svg>';
+const XLG='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+const XSM='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+const UNDO='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>';
+const PLUS='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
+
+const list=document.getElementById('list');
+const drawer=document.getElementById('drawer');
+
+/* ---------------- FLIP on rows (app parity) ---------------- */
+function captureFlip(){ const m=new Map(); for(const el of list.children){ if(el.dataset.flip) m.set(el.dataset.flip, el.getBoundingClientRect().top); } return m; }
+function playFlip(prev){ if(!prev) return; for(const el of list.children){ const id=el.dataset.flip; if(!id||!prev.has(id)) continue;
+  const dy=prev.get(id)-el.getBoundingClientRect().top; if(Math.abs(dy)<2) continue;
+  el.animate([{transform:`translateY(${dy}px)`},{transform:'none'}],{duration:340,easing:'cubic-bezier(0.32,0.72,0,1)'}); } }
+
+/* ---------------- render ---------------- */
+function render(){
+  const lvl=warnLevel();
+  drawer.classList.toggle('lvl1', lvl===1);
+  drawer.classList.toggle('lvl2', lvl===2);
+  const ml=document.getElementById('mLive');   // mobile host mirrors escalation
+  if(ml){ ml.classList.toggle('lvl1', lvl===1); ml.classList.toggle('lvl2', lvl===2); }
+
+  const flipPrev = !sheetOpen ? captureFlip() : null;
+
+  list.innerHTML='';
+  const donez=state.items.filter(isDonezo).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+  const rest=state.items.filter(it=>!isDonezo(it));
+  const order=[...donez,...rest];
+
+  order.forEach(it=>{
+    if(isDonezo(it)){ list.appendChild(buildDonezo(it)); return; }
+    list.appendChild(buildRow(it));
+  });
+  if(activeCount()<HARD_CAP){ list.appendChild(buildAddRow(state.items.length===0)); }
+
+  fit();
+  if(!sheetOpen && flipPrev) playFlip(flipPrev);
+  if(justAddedId){ /* consumed by startEdit */ }
+  donezoEnterId=null;
+  if(sheetOpen) renderSheet();
+  syncAmbitiousBtn();
+  maybeAdvanceAfterFirstAdd();
+}
+
+function buildRow(it){
+  const row=document.createElement('div');
+  row.className='buddy-row'+(list.children.length>0?'':''); row.dataset.flip=it.id;
+  const txt=document.createElement('div');
+  txt.className='rtxt'+(it.state==='done'?' done':'')+((!it.text&&it.state!=='done')?' empty':'');
+  txt.dataset.tid=it.id; txt.textContent=it.text||'';
+  if(it.state!=='done'){
+    txt.addEventListener('mousedown',()=>{ if(editingId===it.id) return; if(row.classList.contains('row-open')) return; editingId=it.id; txt.setAttribute('contenteditable','true'); txt.classList.remove('empty'); });
+    txt.addEventListener('input',()=>{ it.text=txt.textContent.trim(); });
+    txt.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); txt.blur(); } });
+    txt.addEventListener('blur',()=>{ it.text=txt.textContent.trim(); txt.removeAttribute('contenteditable'); editingId=null; if(!it.text){ state.items=state.items.filter(x=>x.id!==it.id); } save(); render(); });
+  }
+  row.appendChild(txt);
+  const acts=document.createElement('div'); acts.className='acts';
+  acts.appendChild(mkBtn(CHECK,'Mark done',()=>cycle(it)));
+  acts.appendChild(mkBtn(SLEEP,'Move to Future',()=>sleepItem(it.id)));
+  acts.appendChild(mkBtn(XLG,'Remove',()=>removeItem(it.id)));
+  row.appendChild(acts);
+  if(isMobile()) attachSwipe(row);
+  return row;
+}
+function buildDonezo(it){
+  const row=document.createElement('div'); row.className='donezo-row'; row.dataset.flip=it.id;
+  const lab=document.createElement('div'); lab.className='dz';
+  const b=document.createElement('b'); b.textContent=(it.doneWord||'Donezo!').replace('!','');
+  const s=document.createElement('s'); s.textContent=it.text||'';
+  lab.append(b,s); row.appendChild(lab);
+  const acts=document.createElement('div'); acts.className='acts';
+  acts.appendChild(mkBtn(UNDO,'Restore to list',()=>restoreItem(it.id)));
+  row.appendChild(acts);
+  if(isMobile()) attachSwipe(row);
+  return row;
+}
+function buildAddRow(first){
+  const add=document.createElement('div'); add.className='buddy-row addrow';
+  add.innerHTML='<div class="addtxt"><span>Add</span><span>+</span></div>';
+  add.addEventListener('mousedown',e=>e.preventDefault());
+  add.addEventListener('click',addAndEdit);
+  return add;
+}
+function mkBtn(icon,title,fn){ const b=document.createElement('button'); b.title=title; b.innerHTML=icon;
+  b.addEventListener('mousedown',e=>e.preventDefault());
+  b.addEventListener('click',e=>{ e.stopPropagation(); fn(); }); return b; }
+
+/* ---------------- fit: squeeze padding (22→10) then font (24→15) ---------------- */
+const FIT={CEIL:24,FLOOR:15,PADMAX:22,PADMIN:10};
+function fit(){
+  if(document.getElementById('mLive')){ list.classList.remove('tight'); return; }   // mobile: natural row heights, CSS-fixed type
+  const H=list.clientHeight; if(H<=0) return;
+  const kids=[...list.children]; if(!kids.length) return;
+  const req=(fs,vp)=>{ list.style.setProperty('--fs',fs+'px'); list.style.setProperty('--vpad',vp+'px');
+    kids.forEach(k=>k.style.flex='0 0 auto'); const h=list.scrollHeight; kids.forEach(k=>k.style.flex=''); return h; };
+  let fs=FIT.CEIL,vp=FIT.PADMAX;
+  if(req(FIT.CEIL,FIT.PADMAX)>H){ let d=false;
+    for(let p=FIT.PADMAX;p>=FIT.PADMIN&&!d;p--) if(req(FIT.CEIL,p)<=H){ vp=p; d=true; }
+    if(!d) for(let f=FIT.CEIL;f>=FIT.FLOOR&&!d;f-=0.5) if(req(f,FIT.PADMIN)<=H){ fs=f; vp=FIT.PADMIN; d=true; }
+    if(!d){ fs=FIT.FLOOR; vp=FIT.PADMIN; } }
+  list.style.setProperty('--fs',fs+'px'); list.style.setProperty('--vpad',vp+'px');
+  // rows shorter than the vertical 3-icon stack plus breathing room (stack ≈ 100,
+  // icons touch borders below ~140) → lay icons horizontally. Mirrors the Mac app.
+  const rows=[...list.querySelectorAll('.buddy-row')];
+  const minRow=rows.length?Math.min(...rows.map(r=>r.offsetHeight)):Infinity;
+  list.classList.toggle('tight', minRow<140);
+}
+
+/* ---------------- Future / Done sheet ---------------- */
+let sheetOpen=false, sheetTab='future';
+const sheet=document.getElementById('sheet'), sheetBody=document.getElementById('sheetBody');
+function openSheet(){ sheetOpen=true; sheet.classList.add('open'); document.getElementById('futBtn').classList.add('sel'); renderSheet(); }
+function closeSheet(){ sheetOpen=false; sheet.classList.remove('open'); document.getElementById('futBtn').classList.remove('sel'); }
+function renderSheet(){
+  document.getElementById('segFut').classList.toggle('sel',sheetTab==='future');
+  document.getElementById('segDone').classList.toggle('sel',sheetTab==='done');
+  sheetBody.innerHTML='';
+  if(sheetTab==='future'){
+    if(!state.deferred.length){ sheetBody.innerHTML='<div class="sheet-empty">Nothing in Future yet.</div>'; return; }
+    const full=activeCount()>=HARD_CAP;
+    state.deferred.slice().reverse().forEach(d=>{
+      const row=document.createElement('div'); row.className='future-row';
+      if(d.sent){
+        row.innerHTML='<div class="fsent"><b>Sent to today!</b><s>'+esc(d.text)+'</s></div>';
+        const acts=document.createElement('div'); acts.className='acts';
+        acts.appendChild(mkBtn(UNDO,'Undo — back to Future',()=>unsendDeferred(d.id)));
+        row.appendChild(acts);
+      } else {
+        row.innerHTML='<div class="ftitle">'+esc(d.text)+'</div>';
+        const acts=document.createElement('div'); acts.className='acts';
+        if(!full) acts.appendChild(mkBtn(PLUS,'Add to today',()=>addDeferredToToday(d.id)));
+        acts.appendChild(mkBtn(XSM,'Remove',()=>deleteDeferred(d.id)));
+        row.appendChild(acts);
+      }
+      sheetBody.appendChild(row);
+    });
+  } else {
+    const done=state.items.filter(it=>it.state==='done');
+    if(!done.length){ sheetBody.innerHTML='<div class="sheet-empty">Nothing done yet today.</div>'; return; }
+    done.forEach(it=>{
+      const row=document.createElement('div'); row.className='future-row';
+      row.innerHTML='<div class="fsent"><b>'+esc((it.doneWord||'Done!').replace('!',''))+'</b><s style="text-decoration:line-through">'+esc(it.text)+'</s></div>';
+      const acts=document.createElement('div'); acts.className='acts';
+      acts.appendChild(mkBtn(UNDO,'Restore to list',()=>restoreItem(it.id)));
+      row.appendChild(acts); sheetBody.appendChild(row);
+    });
+  }
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------------- celebration — ported 1:1 from the Mac app (dist/index.html) ----------------
+   A real physics integrator (position += velocity; velocity.y += gravity; velocity ×= drag),
+   NOT keyframes — so the arc has momentum. Bursts from the BOTTOM-RIGHT of the screen up-LEFT,
+   full-viewport. Same CELEB constants as Mac + iOS (change them together). Emoji pool (the
+   Mac's GIF-less fallback); the website always celebrates at full intensity (no settings). */
+const CELEB={ speed:1400, speedJit:0.98, angle:43, spread:39, gravity:1500, drag:0.6, spin:630,
+              sizeMin:16, sizeMax:44, life:6.0, fadeJit:0.77, stagger:440, count:120 };
+const CELEB_POOL=['🦜','👍','😀','😄','😁','😆','😊','🥳','🤩','😎','🙌'];
+const confettiEl=document.getElementById('confetti');
+let celebParts=[], celebRAF=null, celebLastT=0, celebTimer=null;
+function reducedMotion(){ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(_){ return false; } }
+function fireConfetti(){                       // called on transition INTO done
+  if(reducedMotion()) return;
+  clearTimeout(celebTimer); confettiEl.innerHTML=''; celebParts=[]; if(celebRAF){ cancelAnimationFrame(celebRAF); celebRAF=null; }
+  const rad=d=>d*Math.PI/180, now=performance.now();
+  const ox=innerWidth-40, oy=innerHeight-24;    // bottom-right origin
+  const frag=document.createDocumentFragment();
+  for(let k=0;k<CELEB.count;k++){
+    const el=document.createElement('span'); el.className='parrot'; el.textContent=CELEB_POOL[Math.floor(Math.random()*CELEB_POOL.length)];
+    const size=CELEB.sizeMin+Math.random()*(CELEB.sizeMax-CELEB.sizeMin);
+    el.style.cssText=`left:0;top:0;font-size:${size}px;width:${size}px;height:${size}px;line-height:${size}px;opacity:0`;
+    const a=rad(CELEB.angle)+rad((Math.random()*2-1)*CELEB.spread);
+    const sp=CELEB.speed*(1+(Math.random()*2-1)*CELEB.speedJit);
+    const life=CELEB.life*(1-Math.random()*CELEB.fadeJit*0.5);
+    celebParts.push({el,x:ox,y:oy,vx:-Math.cos(a)*sp,vy:-Math.sin(a)*sp,rot:Math.random()*360,
+      vr:(Math.random()*2-1)*CELEB.spin,born:now+Math.random()*CELEB.stagger,life,fadeAt:life*(0.55+Math.random()*0.35)});
+    frag.appendChild(el);
+  }
+  confettiEl.appendChild(frag); celebLastT=now;
+  celebRAF=requestAnimationFrame(celebTick);
+  celebTimer=setTimeout(()=>{ confettiEl.innerHTML=''; celebParts=[]; if(celebRAF){cancelAnimationFrame(celebRAF);celebRAF=null;} }, (CELEB.life+CELEB.stagger/1000+0.5)*1000);
+}
+function celebTick(now){
+  const dt=Math.min(0.033,(now-celebLastT)/1000); celebLastT=now;
+  const drag=Math.max(0,1-CELEB.drag*dt), H=innerHeight;
+  celebParts=celebParts.filter(p=>{
+    if(!p.el.isConnected) return false;
+    if(now<p.born) return true;
+    const t=(now-p.born)/1000;
+    if(t>p.life || p.y>H+80){ p.el.remove(); return false; }
+    p.vy+=CELEB.gravity*dt; p.vx*=drag; p.vy*=drag;
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.rot+=p.vr*dt;
+    p.el.style.opacity = t<p.fadeAt ? 1 : Math.max(0,1-(t-p.fadeAt)/(p.life-p.fadeAt));
+    p.el.style.transform=`translate(${p.x}px, ${p.y}px) rotate(${p.rot}deg)`;
+    return true;
+  });
+  celebRAF = celebParts.length ? requestAnimationFrame(celebTick) : null;
+}
+
+/* ---------------- chrome buttons ---------------- */
+document.getElementById('futBtn').addEventListener('click',e=>{ e.stopPropagation(); sheetOpen?closeSheet():openSheet(); });
+document.getElementById('sheetClose').addEventListener('click',closeSheet);
+document.getElementById('segFut').addEventListener('click',()=>{ sheetTab='future'; renderSheet(); });
+document.getElementById('segDone').addEventListener('click',()=>{ sheetTab='done'; renderSheet(); });
+document.getElementById('appTitle').addEventListener('click',()=>{ if(sheetOpen) closeSheet(); });
+let pinned=false;
+document.getElementById('pinBtn').addEventListener('click',e=>{ e.stopPropagation(); pinned=!pinned;
+  document.getElementById('pinBtn').classList.toggle('sel',pinned); applyDrawer(); });
+
+/* re-fit whenever the card resizes */
+new ResizeObserver(()=>{ if(list.clientHeight>0) requestAnimationFrame(fit); }).observe(list);
+
+/* ============================================================================
+   SLIDE MACHINE (unchanged mechanics; drawer state now driven by real engine)
+   ============================================================================ */
+const heads=[...document.querySelectorAll('.hd')];
+const bodies=[...document.querySelectorAll('.bd')];
+const slotHead=document.getElementById('slotHead'), slotBody=document.getElementById('slotBody');
+const rule=document.getElementById('rule'), ruleWrap=document.getElementById('ruleWrap');
+const stage=document.getElementById('stage'), dots=document.getElementById('dots');
+const NSCROLL=6;                  // scroll slides (Boomski is NOT one — it's slide 6's success variant)
+const BOOMSKI=6, SIGNUP_SLIDE=5;
+const DRAWER_ON=[0,1,1,1,1,0];    // drawer open per scroll slide
+const blkIdx=[0,1,2,3,4,5,6];
+
+for(let i=0;i<NSCROLL;i++){ const d=document.createElement('b'); d.dataset.go=i; d.onclick=()=>go(i); dots.appendChild(d); }
+
+function setScale(){
+  const cs=getComputedStyle(document.documentElement);
+  const ref=parseFloat(cs.getPropertyValue('--ref'))||1440;
+  const smin=parseFloat(cs.getPropertyValue('--smin'))||0.85;
+  const smax=parseFloat(cs.getPropertyValue('--smax'))||1.35;
+  const s=Math.max(smin, Math.min(smax, innerWidth/ref));
+  document.documentElement.style.setProperty('--s', s.toFixed(4));
+  if(typeof syncReadout==='function') syncReadout();
+}
+const mark=document.getElementById('mark'), typeEl=document.getElementById('type');
+const RULEBOX=()=>{const cs=getComputedStyle(rule);return parseFloat(cs.marginTop)+1+parseFloat(cs.marginBottom);};
+// measure the REAL rendered sizes (icon height + its margin-top) — no --s math needed.
+// NB: #mark is an <svg>, so use getBoundingClientRect().height — SVG has no offsetHeight.
+const groupHeight=i => mark.getBoundingClientRect().height + parseFloat(getComputedStyle(typeEl).marginTop)
+  + heads[i].offsetHeight + RULEBOX() + bodies[i].offsetHeight;
+function anchor(){
+  const vh=innerHeight, ref=groupHeight(0), tallest=Math.max(...heads.map((_,i)=>groupHeight(i)));
+  let top=(vh-ref)/2; top=Math.min(top, vh-24-tallest); top=Math.max(24, top);
+  stage.style.top=Math.round(top)+'px';
+}
+
+function applyDrawer(slide){ const open = pinned || DRAWER_ON[slide]===1; drawer.dataset.open = open?'1':'0'; }
+
+/* ---- interrupt-safe transition ----
+   Only two blocks (outgoing + incoming) can ever be visible; every other block is
+   hard-hidden on each request, so fast scrolling can't pile up 3-4 overlapping. */
+let shown=-1, reqBlock=-1, scrollSlide=-1, gapTimer=null, active=-1;
+const pairOf=i=>[heads[i],bodies[i]];
+function hideBlk(i){ pairOf(i).forEach(el=>{ el.classList.remove('enter','leave','live'); el.style.visibility='hidden'; }); }
+function enterNow(i){
+  pairOf(i).forEach(el=>{ el.classList.remove('leave','enter'); el.style.visibility=''; void el.offsetWidth;
+    el.classList.add('enter','live'); el.addEventListener('animationend',()=>el.classList.remove('enter'),{once:true}); });
+  shown=i; updateIcon();
+}
+function collapseTo(i){
+  const before=ruleWrap.getBoundingClientRect().top;
+  slotHead.style.height=heads[i].offsetHeight+'px';
+  slotBody.style.height=bodies[i].offsetHeight+'px';
+  const dy=before-ruleWrap.getBoundingClientRect().top;
+  if(Math.abs(dy)>0.5){ const o={duration:200,easing:'cubic-bezier(0.37,0,0.63,1)'};
+    ruleWrap.animate([{transform:`translateY(${dy}px)`},{transform:'none'}],o);
+    slotBody.animate([{transform:`translateY(${dy}px)`},{transform:'none'}],o); }
+}
+function requestBlock(i){
+  if(i===reqBlock) return;
+  const from=shown; reqBlock=i;
+  collapseTo(i);
+  clearTimeout(gapTimer);
+  blkIdx.forEach(n=>{ if(n!==from && n!==i) hideBlk(n); });   // kill any pileup
+  if(from<0 || from===i){ enterNow(i); return; }
+  pairOf(from).forEach(el=>{ el.classList.remove('live','enter'); el.classList.add('leave');
+    el.addEventListener('animationend',()=>{ if(el.classList.contains('leave')){ el.classList.remove('leave'); el.style.visibility='hidden'; } },{once:true}); });
+  gapTimer=setTimeout(()=>{ if(reqBlock!==i) return; if(from!==i) hideBlk(from); enterNow(i); }, 200);   // --gap
+}
+function updateIcon(){ mark.classList.toggle('winking', shown===BOOMSKI); }
+
+function goToSlide(slide){
+  scrollSlide=slide;
+  slide1Base = slide===1 ? realCount() : -1;
+  slide3Base  = slide===3 ? donezoCount() : -1;
+  applyDrawer(slide);
+  [...dots.children].forEach((d,n)=>d.classList.toggle('on',n===slide));
+  const want=(state.signedUp && slide===SIGNUP_SLIDE) ? BOOMSKI : slide;
+  requestBlock(want); active=want;
+}
+function onScrollPos(){
+  const slide=Math.max(0,Math.min(NSCROLL-1, Math.round(scrollY/innerHeight)));
+  if(slide!==scrollSlide) goToSlide(slide);
+}
+
+/* signup success → morph Kinda dope into Boomski in place + wink the icon */
+function signup(){
+  if(state.signedUp) return;
+  state.signedUp=true; save();
+  requestBlock(BOOMSKI); active=BOOMSKI;
+  mark.classList.remove('pop'); void mark.offsetWidth; mark.classList.add('pop');
+}
+window.__signup=signup;
+
+function go(i){ scrollTo({top:Math.max(0,Math.min(NSCROLL-1,i))*innerHeight, behavior:'smooth'}); }
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(+b.dataset.go));
+
+/* ---- adaptive add buttons ----
+   Both add buttons track the live list, so they never lie about what the
+   drawer will accept. Below the soft cap they invite adds; at the soft cap
+   slide 2 doubles down; at the hard cap (full red) BOTH become "Next".
+   Re-synced on every render, so checking a task done flips them right back. */
+const NEXT_ARROW=' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+function setBtnLabel(b,want){ if(b && b.dataset.label!==want){ b.dataset.label=want; b.innerHTML=want; } }
+function syncAmbitiousBtn(){
+  const n=activeCount(), full=n>=HARD_CAP;
+  setBtnLabel(document.getElementById('addTaskBtn'), full ? 'Next'+NEXT_ARROW : 'Add a task!');
+  setBtnLabel(document.getElementById('addTaskBtn2'),
+    full ? 'Next'+NEXT_ARROW : n===SOFT_CAP ? 'Add yet another!' : 'Add another task');
+}
+document.getElementById('addTaskBtn').addEventListener('click',()=>{
+  if(activeCount()>=HARD_CAP) go(2); else addAndEdit();
+});
+document.getElementById('addTaskBtn2').addEventListener('click',()=>{
+  if(activeCount()>=HARD_CAP) go(3); else addAndEdit();
+});
+
+/* ---- fun task modes + refresh reset ----
+   The switcher reseeds the live engine with themed tasks. The list also
+   resets to the current mode's seed on every page load (no persistence, for
+   now) so the story always starts from the beginning. Signup state persists. */
+const MODES={
+  noticer:{items:['Find wallet (it’s somewhere “safe”)','Ask wife what I forgot to write down','Rewash the laundry I abandoned in the washer'],deferred:['Reply to the 9-day-old text. The shame is load-bearing now.']},
+  walter:{items:['Acquire a barrel. Ask zero questions.','Tell Skyler it’s car wash money. Hold eye contact.','Remind Jesse we do not say his name.'],deferred:['The crawl space situation.']},
+  thunder:{items:['Polish the Sword of Omens. It judges you.','Feed Snarf before he narrates again','Tell Mumm-Ra monologues are not a plan'],deferred:['Fix the Cat Signal. Wilykit knows what she did.']}
+};
+let mode='noticer';   // Super Noticer is the default
+const seedItems=()=>MODES[mode].items.map(t=>Object.assign(newItem(t),{seeded:true}));
+const seedDeferred=()=>MODES[mode].deferred.map(t=>({id:nid(),text:t,sent:false,seeded:true}));
+function seedMode(){
+  state.items=seedItems();
+  state.deferred=seedDeferred();
+  editingId=null;
+}
+function applyMode(next){
+  if(next===mode) return;
+  mode=next;
+  // swap the mode's seeded content, but KEEP everything the visitor added or slept
+  const myItems=state.items.filter(it=>!it.seeded);
+  const myDeferred=state.deferred.filter(d=>!d.seeded);
+  state.items=[...seedItems(),...myItems];
+  state.deferred=[...seedDeferred(),...myDeferred];
+  // over the cap after the swap → the mode's seeds yield, never the visitor's tasks
+  while(state.items.filter(i=>i.state!=='done').length>HARD_CAP){
+    const i=state.items.findIndex(x=>x.seeded&&x.state!=='done');
+    if(i<0) break; state.items.splice(i,1);
+  }
+  editingId=null;
+  slide1Base = scrollSlide===1 ? realCount() : -1;    // re-baseline the story beats
+  slide3Base = scrollSlide===3 ? donezoCount() : -1;
+  save(); render();
+  document.querySelectorAll('#modeSwitch button').forEach(b=>b.classList.toggle('sel',b.dataset.mode===mode));
+}
+document.querySelectorAll('#modeSwitch button').forEach(b=>b.addEventListener('click',()=>applyMode(b.dataset.mode)));
+
+/* ---- gray pointer arrow → drawer's Add + row ----
+   Live-tracked in rAF (two rect reads per frame — negligible) so it rides the
+   drawer's slide-in transition and any list reflow without event plumbing.
+   Geometry from Figma: 66×32 arrow, 34px gap to the card's left edge. */
+const taskArrow=document.getElementById('taskArrow');
+const ARROW_W=66, ARROW_H=32, ARROW_GAP=34;
+function drawTaskArrow(){
+  const btn=document.getElementById('addTaskBtn'), row=drawer.querySelector('.addrow');
+  const onAddSlide=(scrollSlide===1||scrollSlide===2) && (shown===1||shown===2);   // both adding slides
+  if(!onAddSlide || isMobile() || !btn || !row || drawer.dataset.open!=='1'){
+    taskArrow.classList.remove('show'); return;
+  }
+  const b=btn.getBoundingClientRect(), a=row.getBoundingClientRect();
+  const x=a.left-ARROW_GAP-ARROW_W, y=a.top+a.height/2-ARROW_H/2;
+  if(x < b.right+24){ taskArrow.classList.remove('show'); return; }   // too cramped — skip it
+  taskArrow.style.transform=`translate(${x}px, ${y}px)`;
+  taskArrow.classList.toggle('hot', drawer.classList.contains('lvl1')||drawer.classList.contains('lvl2'));
+  taskArrow.classList.add('show');
+}
+(function arrowLoop(){ drawTaskArrow(); requestAnimationFrame(arrowLoop); })();
+
+/* ---- story beats driven by what the visitor does in the drawer ----
+   slide 1: first real task added → advance to the red slide.
+   slide 2: no auto-advance — the adaptive button becomes "Next" at the cap.
+   slide 3: they check something off and the Donezo lands → advance.
+   Baselines are captured on slide entry so returning visitors with pre-filled
+   state don't get auto-scrolled. Empty rows don't count until committed. */
+let slide1Base=-1, slide3Base=-1;
+const realCount=()=>state.items.filter(it=>it.state!=='done'&&it.text&&it.text.trim()).length;
+const donezoCount=()=>state.items.filter(it=>it.state==='done').length;
+function maybeAdvanceAfterFirstAdd(){
+  if(scrollSlide===1 && slide1Base>=0 && !editingId && realCount()>slide1Base){
+    slide1Base=-1;
+    setTimeout(()=>{ if(scrollSlide===1) go(2); }, 650);    // beat to see it land
+  }
+  if(mLiveBase>=0 && !editingId && realCount()>mLiveBase){   // mobile: first add advances the story
+    mLiveBase=-1;
+    setTimeout(()=>{ const s=document.querySelectorAll('#mobile .msec')[2]; s&&s.scrollIntoView({behavior:'smooth'}); },650);
+  }
+  if(scrollSlide===3 && slide3Base>=0 && donezoCount()>slide3Base){
+    slide3Base=-1;
+    setTimeout(()=>{ if(scrollSlide===3) go(4); }, 4200);   // confetti + Donezo morph play out
+  }
+}
+
+let tick=false;
+addEventListener('scroll',()=>{ if(tick) return; tick=true; requestAnimationFrame(()=>{ tick=false; onScrollPos(); }); },{passive:true});
+addEventListener('keydown',e=>{ if(editingId) return;
+  if(e.key==='ArrowDown'||e.key==='PageDown'){ e.preventDefault(); go(scrollSlide+1); }
+  if(e.key==='ArrowUp'||e.key==='PageUp'){ e.preventDefault(); go(scrollSlide-1); } });
+addEventListener('resize',()=>{
+  setScale();
+  if(isMobile()) buildMobile();
+  anchor();
+  if(shown>=0){ slotHead.style.height=heads[shown].offsetHeight+'px'; slotBody.style.height=bodies[shown].offsetHeight+'px'; }
+  fit();
+});
+
+/* ---------------- mobile: stacked, static Buddy card ---------------- */
+function buildMobile(){
+  const m=document.getElementById('mobile'); if(m.dataset.built) return; m.dataset.built='1';
+
+  // ONE sticky icon at the top (does not repeat per section)
+  const stick=document.createElement('div'); stick.id='mStick';
+  const topIcon=document.getElementById('mark').cloneNode(true); topIcon.removeAttribute('id'); topIcon.id='mStickIcon';
+  stick.appendChild(topIcon); m.appendChild(stick);
+
+  // sections 0..5 only — Boomski (6) is the signup-success variant of section 5, not its own section
+  const secs=[0,1,2,3,4,5].map(i=>({idx:i, h:heads[i].textContent, body:bodies[i].cloneNode(true), card:i===1}));
+  let mKindaSec=null;
+  secs.forEach(s=>{
+    const sec=document.createElement('div'); sec.className='msec'+(s.idx===0?' mhero':'');
+    const h=document.createElement('h2'); h.className='mh1'; h.textContent=s.h;
+    const hr=document.createElement('hr'); hr.className='mrule';
+    const body=s.body; body.className='mbody'; body.style.cssText='';
+    body.querySelectorAll('p').forEach(p=>p.classList.add('mp'));
+    // no live drawer on mobile — the add buttons (and the arrow) are desktop-only
+    body.querySelectorAll('#addTaskBtn,#addTaskBtn2').forEach(el=>el.remove());
+    body.querySelectorAll('.btn,.nudge,.form,.ok').forEach(el=>el.style.cssText='');
+    sec.append(h,hr,body);
+    if(s.card) sec.appendChild(mountLiveCard());   // the REAL engine card, moved (not cloned)
+    if(s.idx===2) sec.appendChild(buildMobileRedCard());   // static full-red state
+    if(s.idx===3) sec.appendChild(buildMobileDonezo());    // static Donezo rows
+    if(s.idx===SIGNUP_SLIDE){
+      mKindaSec={sec,h,body};
+      const form=body.querySelector('.form');
+      if(form) form.onsubmit=e=>{ e.preventDefault(); mobileSignup(mKindaSec, topIcon); };
+      if(state.signedUp) applyMobileBoomski(mKindaSec, topIcon, false);
+    }
+    m.appendChild(sec);
+  });
+
+  // footer winking face — thinner stroke, from Figma node 69:1195
+  const foot=document.createElement('div'); foot.className='mfoot';
+  foot.innerHTML=FOOT_ICON; m.appendChild(foot);
+
+  // mobile sections are static — data-go buttons just scroll to the next section
+  m.querySelectorAll('.btn[data-go],[data-go].btn').forEach(b=>{
+    b.onclick=e=>{ e.preventDefault(); const sec=b.closest('.msec');
+      sec && sec.nextElementSibling && sec.nextElementSibling.scrollIntoView({behavior:'smooth'}); };
+  });
+}
+const FOOT_ICON=`<svg viewBox="0 0 396 396" fill="none" aria-label="Buddy" role="img">
+  <path d="M390 144.24L262 6H48.6666C37.3507 6 26.4983 10.4952 18.4968 18.4968C10.4952 26.4983 6 37.3507 6 48.6666V347.333C6 358.649 10.4952 369.502 18.4968 377.503C26.4983 385.505 37.3507 390 48.6666 390H347.333C358.649 390 369.502 385.505 377.503 377.503C385.505 369.502 390 358.649 390 347.333V144.24Z" fill="#fff"/>
+  <path d="M112.667 219.333H112.88M283.333 219.333H283.547M390 144.24V347.333C390 358.649 385.505 369.502 377.503 377.503C369.502 385.505 358.649 390 347.333 390H48.6666C37.3507 390 26.4983 385.505 18.4968 377.503C10.4952 369.502 6 358.649 6 347.333V48.6666C6 37.3507 10.4952 26.4983 18.4968 18.4968C26.4983 10.4952 37.3507 6 48.6666 6H262L390 144.24Z" stroke="#000" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M154.824 275.656C154.824 275.656 171.891 304.669 197.491 304.669C225.225 304.669 240.158 275.656 240.158 275.656M98.7998 231.582L125.142 217.57M98.7998 203.59L125.142 217.602M297.056 232.542L270.714 218.53L297.056 204.55" stroke="#000" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M246.679 116.352L246.353 13.8545C246.34 9.60349 249.782 6.15015 254.033 6.15015H261.348C268.402 6.15015 275.143 9.0603 279.98 14.1937L381.638 122.076C387.009 127.776 390 135.312 390 143.144V146.95C390 151.192 386.562 154.63 382.32 154.63H285.078C263.918 154.63 246.746 137.512 246.679 116.352Z" fill="#FF4342" stroke="#000" stroke-width="12"/>
+</svg>`;
+/* mobile signup → morph the Kinda dope section into Boomski in place + wink sticky icon */
+function applyMobileBoomski(ref, icon, animate){
+  ref.h.textContent = heads[BOOMSKI].textContent;            // "Boomski."
+  const nb = bodies[BOOMSKI].cloneNode(true);
+  nb.className='mbody'; nb.style.cssText='';
+  nb.querySelectorAll('p').forEach(p=>p.classList.add('mp'));
+  nb.querySelectorAll('.ok').forEach(el=>el.style.cssText='');
+  ref.body.replaceWith(nb); ref.body=nb;
+  icon.classList.add('winking');
+  if(animate){
+    [ref.h, nb].forEach(el=>{ el.style.opacity='0'; el.style.transform='translateX(-8px)';
+      el.animate([{opacity:0,transform:'translateX(-8px)'},{opacity:1,transform:'none'}],
+        {duration:360,easing:'cubic-bezier(0.16,1,0.3,1)',fill:'forwards'}); });
+    icon.classList.remove('pop'); void icon.offsetWidth; icon.classList.add('pop');
+  }
+}
+function mobileSignup(ref, icon){
+  if(state.signedUp){ return; }
+  state.signedUp=true; save();
+  applyMobileBoomski(ref, icon, true);
+}
+
+function buildMobileCard(){
+  const c=document.createElement('div'); c.className='mcard';
+  c.innerHTML=document.querySelector('#drawer .bcard').outerHTML;
+  const listCopy=document.createElement('div'); listCopy.style.cssText='background:#fff';
+  const tasks=['Water the plants','Reply to Sam','Ship the thing'];
+  listCopy.innerHTML=tasks.map((t,i)=>`<div style="padding:20px 32px;font-size:20px;font-weight:500;letter-spacing:-0.4px;${i?'border-top:1px solid #ededed;':''}">${t}</div>`).join('')
+    +`<div style="padding:20px 32px;font-size:20px;font-weight:500;letter-spacing:-0.4px;color:rgba(0,0,0,.2);border-top:1px solid #ededed">Add +</div>`;
+  c.appendChild(listCopy); return c;
+}
+
+/* ---- live mobile drawer (prototype) ----
+   Moves the real header card + list card out of the hidden desktop drawer and
+   into section 2. Same DOM, same engine — render()/save()/escalation all keep
+   working; only the host changes. One-way for the session: crossing the
+   desktop↔mobile breakpoint after boot needs a reload (acceptable here). */
+let mLiveBase=-1;
+function mountLiveCard(){
+  const wrap=document.createElement('div'); wrap.className='mcard mlive'; wrap.id='mLive';
+  wrap.appendChild(document.querySelector('#drawer .bcard'));
+  wrap.appendChild(document.getElementById('listCard'));
+  mLiveBase=realCount();
+  requestAnimationFrame(()=>render());   // re-render so rows pick up swipe wiring
+  return wrap;
+}
+
+/* ---- iOS-parity swipe (ported from the app's SwipeableRow) ----
+   Swipe LEFT reveals the trailing action tray (58px per action); the row text
+   slides over it. Opens past half the tray width, one row open at a time, tap
+   closes. Horizontal-intent detection keeps vertical drags with the page scroll. */
+let openRowEl=null;
+function closeOpenRow(){ if(openRowEl){ openRowEl.classList.remove('row-open'); openRowEl=null; } }
+function attachSwipe(row){
+  const slide=row.querySelector('.rtxt,.dz'), acts=row.querySelector('.acts');
+  if(!slide||!acts||!acts.children.length) return;
+  const trayW=acts.children.length*58;
+  row.style.setProperty('--trayw',trayW+'px');
+  let x0=0,y0=0,dx=0,horiz=null,wasOpen=false;
+  row.addEventListener('touchstart',e=>{ const t=e.touches[0]; x0=t.clientX; y0=t.clientY; dx=0; horiz=null;
+    wasOpen=row.classList.contains('row-open');
+    if(openRowEl&&openRowEl!==row) closeOpenRow(); },{passive:true});
+  row.addEventListener('touchmove',e=>{ const t=e.touches[0], mx=t.clientX-x0, my=t.clientY-y0;
+    if(horiz===null){ if(Math.abs(mx)<6&&Math.abs(my)<6) return; horiz=Math.abs(mx)>Math.abs(my); }
+    if(!horiz) return;
+    dx=Math.min(0,Math.max(-trayW,(wasOpen?-trayW:0)+mx));
+    slide.style.transition='none'; slide.style.transform=`translateX(${dx}px)`;
+    acts.style.transition='none'; acts.style.transform=`translate(${trayW+dx}px,0)`;
+  },{passive:true});
+  row.addEventListener('touchend',()=>{
+    slide.style.transition=''; slide.style.transform=''; acts.style.transition=''; acts.style.transform='';
+    if(horiz===null){ if(wasOpen){ row.classList.remove('row-open'); if(openRowEl===row) openRowEl=null; } return; }   // tap on open row → close
+    if(!horiz) return;
+    const willOpen=dx<-trayW*0.5;
+    row.classList.toggle('row-open',willOpen);
+    openRowEl=willOpen?row:(openRowEl===row?null:openRowEl);
+  });
+}
+/* static red (lvl2) card — the 6-task full state, list only */
+function buildMobileRedCard(){
+  const c=document.createElement('div'); c.className='mcard';
+  c.style.border='none';   // stroke is for the white interfaces; red card carries its own weight
+  const tasks=['Water the plants','Reply to Sam','Ship the thing','Call the bank','Fold the laundry','One more thing'];
+  const row=(t,i)=>`<div style="padding:18px 32px;font-size:20px;font-weight:500;letter-spacing:-0.4px;color:#fff;${i?'border-top:1px solid rgba(255,255,255,.3);':''}">${t}</div>`;
+  c.innerHTML=`<div style="background:var(--red);border-radius:24px;overflow:hidden">${tasks.map(row).join('')}
+    <div style="padding:18px 32px;font-size:14px;letter-spacing:-0.2px;color:rgba(255,255,255,.75);border-top:1px solid rgba(255,255,255,.3)">That's six. Buddy says no.</div></div>`;
+  return c;
+}
+/* static Donezo rows — the feel-good done list */
+function buildMobileDonezo(){
+  const c=document.createElement('div'); c.className='mcard';
+  const rows=[['Donezo','Water the plants'],['Sorted','Reply to Sam'],['Ta-Da','Ship the thing']];
+  c.innerHTML=`<div style="background:#fff;border-radius:24px;overflow:hidden">${rows.map(([w,t],i)=>
+    `<div style="display:flex;gap:12px;align-items:baseline;padding:18px 32px;${i?'border-top:1px solid #ededed;':''}">
+      <b style="font-size:20px;letter-spacing:-0.4px">${w}</b>
+      <s style="font-size:20px;font-weight:500;letter-spacing:-0.4px;color:rgba(0,0,0,.35)">${t}</s>
+    </div>`).join('')}</div>`;
+  return c;
+}
+
+/* ---------------- boot ---------------- */
+function isMobile(){ return matchMedia('(max-width:1024px), (pointer:coarse)').matches; }
+function boot(){
+  setScale();
+  load();
+  state.signedUp=false;   // refresh restores the signup form — the whole story replays
+  seedMode();             // every refresh starts the list from the beginning (for now)
+  save();
+  render();
+  if(isMobile()){ buildMobile(); }
+  anchor(); scrollSlide=-1; onScrollPos();
+}
+document.fonts.ready.then(()=>{ anchor(); if(shown<0) onScrollPos(); });
+boot();
+
+/* ===================== TYPE TUNING PANEL ===================== */
+const TUNE={ c_h1:['--h1','px'], c_h1lh:['--h1lh',''], c_body:['--body','px'], c_bodylh:['--bodylh',''],
+             c_ref:['--ref','px'], c_smax:['--smax',''], c_smin:['--smin',''], c_mh1:['--mh1','px'], c_mbody:['--mbody','px'] };
+const DEFAULTS={c_h1:36,c_h1lh:1.1,c_body:18,c_bodylh:1.4,c_ref:1580,c_smax:1.35,c_smin:0.9,c_mh1:28,c_mbody:17};
+const rootStyle=document.documentElement.style;
+function applyTune(){
+  for(const [id,[v]] of Object.entries(TUNE)){
+    const el=document.getElementById(id); rootStyle.setProperty(v, el.value);
+    document.getElementById('v'+id.slice(1)).textContent = el.value + (TUNE[id][1]||'');
+  }
+  setScale(); anchor();
+  if(active>=0){ slotHead.style.height=heads[active].offsetHeight+'px'; slotBody.style.height=bodies[active].offsetHeight+'px'; }
+}
+window.syncReadout=function(){
+  if(!document.getElementById('c_h1')) return;   // tune panel removed in production
+  const s=getComputedStyle(document.documentElement).getPropertyValue('--s').trim();
+  const eff=Math.round((parseFloat(document.getElementById('c_h1').value)||48)*(parseFloat(s)||1));
+  const mob=isMobile();
+  document.getElementById('vpRead').textContent = innerWidth+'px · '+(mob?'mobile':('×'+(parseFloat(s)||1).toFixed(2)+' · h1 '+eff+'px'));
+};
+function initTune(){
+  for(const id of Object.keys(TUNE)){ const el=document.getElementById(id); el.value=DEFAULTS[id];
+    el.addEventListener('input', applyTune); }
+  applyTune(); syncReadout();
+  document.getElementById('tReset').onclick=()=>{ for(const id of Object.keys(TUNE)) document.getElementById(id).value=DEFAULTS[id]; applyTune(); syncReadout(); };
+  document.getElementById('tCopy').onclick=async()=>{
+    const g=id=>document.getElementById(id).value;
+    const css=`:root{\n  --h1:${g('c_h1')}; --h1lh:${g('c_h1lh')};   /* desktop headline px @ scale 1 + line-height */\n  --body:${g('c_body')}; --bodylh:${g('c_bodylh')};   /* desktop body px @ scale 1 + line-height */\n  --ref:${g('c_ref')}; --smin:${g('c_smin')}; --smax:${g('c_smax')};   /* fluid scale: 1.0 at --ref px */\n  --mh1:${g('c_mh1')}; --mbody:${g('c_mbody')};      /* mobile headline / body px */\n}`;
+    try{ await navigator.clipboard.writeText(css); }catch(_){}
+    const b=document.getElementById('tCopy'); b.textContent='Copied ✓'; setTimeout(()=>b.textContent='Copy CSS',1200);
+  };
+  document.getElementById('tuneToggle').onclick=()=>document.getElementById('tune').classList.toggle('open');
+}
+/* Dev-only type tuner: visible with ?tune in the URL, removed in production. */
+if(location.search.includes('tune')){ initTune(); }
+else { const t=document.getElementById('tune'); if(t) t.remove(); }
+
+/* test hooks */
+window.__lab={state,render,go,goToSlide,requestBlock,signup,activeCount,warnLevel,openSheet,closeSheet,
+  addAndEdit,cycle,sleepItem,removeItem,addDeferredToToday,unsendDeferred,deleteDeferred,restoreItem,
+  reset:()=>{localStorage.removeItem(KEY);location.reload();}, get active(){return active;}, get shown(){return shown;}};
+</script>
+</body>
+</html>
