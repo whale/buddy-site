@@ -1031,8 +1031,20 @@ function buildMobile(){
      viewport math. 65svh comfortably exceeds the tallest iPhone keyboard. */
   window.__mPin=(form,fld)=>{
     if(!fld) return;
+    const clearWhenSafe=()=>{
+      // Dropping the headroom while scrolled into it would clamp scrollY and
+      // yank the page — right as the signup celebration plays. So shed only
+      // what the current scroll position can spare, and finish the job on a
+      // later scroll once it's free.
+      const doc=document.documentElement;
+      const pad=parseFloat(getComputedStyle(m).paddingBottom)||0;
+      const maxWithout=doc.scrollHeight-pad-innerHeight;
+      const needed=Math.max(0, Math.ceil(scrollY-maxWithout));
+      m.style.paddingBottom = needed ? needed+'px' : '';
+      if(needed) addEventListener('scroll',clearWhenSafe,{once:true,passive:true});
+    };
     fld.addEventListener('focusin',()=>{ m.style.paddingBottom='65svh'; });
-    fld.addEventListener('focusout',()=>{ m.style.paddingBottom=''; });
+    fld.addEventListener('focusout',clearWhenSafe);
   };
 
   // touch tooltips: tap an underlined term → tooltip for 2s, then fade (no hover on mobile)
