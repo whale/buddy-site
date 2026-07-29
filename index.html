@@ -277,12 +277,17 @@ p{text-wrap:pretty}
      bleeding through; z-index above confetti (60) so the celebration always
      bursts BEHIND the icon. Trade-off accepted: while the iOS keyboard is up
      the icon may pan out of view — it's back before the confetti fires. */
-  /* Icon sits in the page and scrolls away like any other content —
-     absolutely positioned, no bar, no gradient, no cover. Nothing is pinned,
-     so the iOS keyboard has nothing to drag off-screen and there is no
-     JavaScript involved at any point. The 4px white border keeps it clean
-     against anything it passes. #mobile reserves the space via padding-top. */
-  #mStick{position:absolute;top:22px;left:24px;z-index:20}
+  /* Icon stays pinned at the top of the screen. Just the icon on a 4px white
+     border — no bar, no gradient, no cover; content scrolls behind it.
+     The box is a centred, full-width, click-through shell purely so the icon
+     lines up with the 24px content gutter at any width.
+     TRANSFORM, not top: the icon is held in place against the iOS keyboard by
+     a translate3d driven from visualViewport (see mStickTrack in JS). transform
+     is a compositor property, so it survives the keyboard's viewport pan —
+     an earlier attempt animated `top`, a layout property iOS does not
+     reliably repaint mid-pan, which is why the icon vanished. */
+  #mStick{position:fixed;top:0;left:0;right:0;z-index:70;pointer-events:none;
+    max-width:520px;margin:0 auto;padding:22px 24px 0;will-change:transform}
   #mStick svg{width:56px;height:56px;display:block;border:4px solid #fff;background:#fff}
   /* native anchor/focus scrolling clears the bar and breathes above the keyboard */
   html{scroll-padding:24px 0 24px}   /* nothing is pinned now — just breathing room */
@@ -1025,11 +1030,27 @@ function buildMobile(){
   const stick=document.createElement('div'); stick.id='mStick';
   const topIcon=document.getElementById('mark').cloneNode(true); topIcon.removeAttribute('id'); topIcon.id='mStickIcon';
   stick.appendChild(topIcon); m.appendChild(stick);
-  // --stickH is just the space #mobile reserves for the absolute icon; the
-  // hero subtracts it so the first screen is exactly one viewport tall
+  // --stickH is the space #mobile reserves for the pinned icon; the hero
+  // subtracts it so the first screen is exactly one viewport tall
   const setStickH=()=>document.documentElement.style.setProperty('--stickH',
     getComputedStyle(m).paddingTop);
   requestAnimationFrame(setStickH); addEventListener('resize',setStickH);
+
+  /* Hold the pinned icon against the iOS keyboard.
+     When the keyboard opens near the bottom of a document, Safari pans the
+     LAYOUT viewport up rather than scrolling — position:fixed is anchored to
+     that layout viewport, so the icon travels off-screen with it.
+     visualViewport.offsetTop is exactly how far it panned, so translating the
+     icon down by that amount holds it still on screen.
+     This must be a TRANSFORM: transforms are composited, so they keep painting
+     through the pan. The previous attempt set `top` each frame — a layout
+     property iOS does not reliably repaint mid-pan, so it computed correct
+     numbers onto an element that had stopped being drawn. */
+  if(window.visualViewport){
+    const vv=visualViewport;
+    const track=()=>{ stick.style.transform=`translate3d(0,${vv.offsetTop}px,0)`; };
+    vv.addEventListener('scroll',track); vv.addEventListener('resize',track); track();
+  }
   /* ---- keyboard: give the page ROOM instead of chasing the viewport ----
      Root cause of the icon vanishing: the signup field sits at the bottom of
      the document, so when the keyboard opens Safari has nothing left to
