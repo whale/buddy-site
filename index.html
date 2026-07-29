@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Buddy</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#ffffff">
 <meta name="description" content="Buddy — a calm macOS menu-bar focus app. Pick your top few each day; a right-edge drawer holds them, and turns red when you overcommit.">
 <meta property="og:title" content="Buddy">
 <meta property="og:description" content="The cutest, most constrained to-do list in history. For distraction-prone super-noticers.">
@@ -262,7 +263,12 @@ p{text-wrap:pretty}
 @media (max-width:1024px), (pointer:coarse){
   html{scroll-snap-type:none}
   .beat, #dots, #drawer, #stage{display:none !important}
-  body{overflow-x:clip}          /* clip (not hidden) — hidden breaks position:sticky */
+  /* NO overflow clip on mobile: clip on one axis forces clip on both, and any
+     clipping ancestor amputates the white cover #mStick::before paints above
+     the viewport — exactly the zone iOS Safari mirrors behind the status bar,
+     which is why the bleed-through survived every earlier "fix". Nothing on
+     the mobile layout overflows horizontally (desktop stage/drawer are
+     display:none), so the clip isn't needed at all. */
   #mobileWrap{display:block}
   #mobile{max-width:520px;margin:0 auto;padding:0 24px;position:relative}   /* no bottom pad — the winking face crops at the page edge */
   /* single icon, pinned at the top — does NOT repeat per section.
@@ -1093,6 +1099,25 @@ function buildMobile(){
     }
     m.appendChild(sec);
   });
+
+  // test hook: ?vv=1 paints an on-page debug HUD (simulator has no console)
+  if(location.search.includes('vv=1')){
+    const hud=document.createElement('pre');
+    hud.style.cssText='position:fixed;bottom:120px;left:8px;right:8px;z-index:9999;background:#000;color:#0f0;font-size:11px;padding:8px;white-space:pre-wrap;pointer-events:none';
+    document.body.appendChild(hud);
+    const dump=()=>{ const cs=getComputedStyle(stick); const r=stick.getBoundingClientRect();
+      const mid=document.elementFromPoint(200, r.top+r.height-6);
+      hud.textContent=JSON.stringify({pos:cs.position,z:cs.zIndex,bg:cs.backgroundColor,
+        rect:[Math.round(r.top),Math.round(r.height)], scrollY:Math.round(scrollY),
+        onTopAtBar: mid&&(mid.id||mid.className||mid.tagName),
+        before:getComputedStyle(stick,'::before').height},null,1); };
+    setInterval(dump,500); dump();
+  }
+  // test hook: ?goto=app|feat|signup lands on a section with no gestures
+  // (lets the iOS Simulator be driven by URL alone)
+  const g=new URLSearchParams(location.search).get('goto');
+  if(g){ const map={app:1,feat:2,signup:3}; const t=m.querySelectorAll('.msec')[map[g]??3];
+    if(t) requestAnimationFrame(()=>scrollTo(0, t.getBoundingClientRect().top+scrollY-stick.offsetHeight)); }
 
   // mobile sections are static — data-go buttons scroll to the next section.
   // Manual math, not scrollIntoView: iOS Safari has ignored scroll-margin
