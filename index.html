@@ -356,8 +356,8 @@ p{text-wrap:pretty}
      Safari can always scroll, so it never pans. 55svh (~460px) comfortably
      exceeds the tallest iPhone keyboard (~340px). Cost: empty space below the
      form that nobody scrolls to. Cheap price for deleting a whole bug class. */
-  #mobile{padding-bottom:55svh}
-  @supports not (height:1svh){ #mobile{padding-bottom:55vh} }
+  #mobile{padding-bottom:var(--kbpad,55svh)}
+  @supports not (height:1svh){ #mobile{padding-bottom:var(--kbpad,55vh)} }
 }
 </style>
 </head>
@@ -1041,30 +1041,13 @@ function buildMobile(){
      pinning mechanism measured jitter-free. Headroom is removed on blur.
      `svh` is keyboard-independent, so the padding can't feed back into the
      viewport math. 65svh comfortably exceeds the tallest iPhone keyboard. */
-  /* The headroom that stops Safari panning is PERMANENT and pure CSS
-     (`#mobile{padding-bottom:55svh}`) — nothing here has to fire in time,
-     which is what made every event-driven attempt fragile. All that's left
-     for JS is cosmetic: Safari reveals the field with its own heuristic and,
-     given that headroom, tends to overshoot and leave the form floating well
-     above the keyboard. Once the keyboard settles, nudge once — instantly,
-     so there's no animation to fight — to sit 24px above it. If this is off,
-     the page is still correct, just less tidy. */
-  window.__mPin=(form,fld)=>{
-    if(!fld||!window.visualViewport) return;
-    const vv=visualViewport; let baseH=0, corrected=false, timer=null;
-    fld.addEventListener('focusin',()=>{ baseH=vv.height; corrected=false; });
-    vv.addEventListener('resize',()=>{
-      if(document.activeElement!==fld || corrected) return;
-      if(vv.height > baseH-60) return;                  // keyboard not up yet
-      clearTimeout(timer);
-      timer=setTimeout(()=>{
-        if(document.activeElement!==fld) return;
-        const d=form.getBoundingClientRect().bottom-(vv.offsetTop+vv.height-24);
-        if(Math.abs(d)>8) scrollBy(0,d);
-        corrected=true;
-      },300);
-    });
-  };
+  /* NO JavaScript touches scroll position on focus. A corrective scroll after
+     Safari has already scrolled is two moves where the user sees one jump —
+     that "goes to the wrong place, then jitters into the right place" is us,
+     not Safari. Keyboard handling is entirely CSS now
+     (`#mobile{padding-bottom:...}`), so there is nothing to race and nothing
+     to correct. Kept as a no-op hook so the call site stays stable. */
+  window.__mPin=()=>{};
 
   // touch tooltips: tap an underlined term → tooltip for 2s, then fade (no hover on mobile)
   m.addEventListener('click',e=>{
@@ -1170,6 +1153,12 @@ function buildMobile(){
     if(vv){ vv.addEventListener('resize',dump); vv.addEventListener('scroll',dump); }
     addEventListener('scroll',dump,{passive:true});
   }
+  // A/B hook: ?pad=0 removes the keyboard headroom (?pad=30 etc. sets svh)
+  // so the two hypotheses can be compared on one device in one sitting.
+  const padQ=new URLSearchParams(location.search).get('pad');
+  if(padQ!==null) document.documentElement.style.setProperty('--kbpad',
+    padQ==='0' ? '0px' : (parseFloat(padQ)||55)+'svh');
+
   // test hook: ?goto=app|feat|signup lands on a section with no gestures
   // (lets the iOS Simulator be driven by URL alone)
   const g=new URLSearchParams(location.search).get('goto');
