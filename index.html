@@ -270,22 +270,22 @@ p{text-wrap:pretty}
      the mobile layout overflows horizontally (desktop stage/drawer are
      display:none), so the clip isn't needed at all. */
   #mobileWrap{display:block}
-  #mobile{max-width:520px;margin:0 auto;padding:0 24px;position:relative}   /* no bottom pad — the winking face crops at the page edge */
+  #mobile{max-width:520px;margin:0 auto;padding:92px 24px 0;position:relative}   /* top pad reserves the absolute icon's space */
   /* single icon, pinned at the top — does NOT repeat per section.
      Plain CSS sticky + solid white: compositor-driven, so it never jitters
      (the JS visualViewport pinning did). Solid bg stops scrolled text from
      bleeding through; z-index above confetti (60) so the celebration always
      bursts BEHIND the icon. Trade-off accepted: while the iOS keyboard is up
      the icon may pan out of view — it's back before the confetti fires. */
-  #mStick{position:sticky;top:0;z-index:70;padding:22px 0 14px;background:#fff}
-  /* solid cover ABOVE the bar — iOS lets scrolled content show through the
-     translucent status-bar zone above the layout viewport; paint it white */
-  #mStick::before{content:'';position:absolute;left:-24px;right:-24px;bottom:100%;height:220px;background:#fff}
-  #mStick::after{content:'';position:absolute;left:-24px;right:-24px;top:100%;height:18px;
-    background:linear-gradient(#fff,rgba(255,255,255,0))}
-  #mStick svg{width:56px;height:56px;display:block}
+  /* Icon sits in the page and scrolls away like any other content —
+     absolutely positioned, no bar, no gradient, no cover. Nothing is pinned,
+     so the iOS keyboard has nothing to drag off-screen and there is no
+     JavaScript involved at any point. The 4px white border keeps it clean
+     against anything it passes. #mobile reserves the space via padding-top. */
+  #mStick{position:absolute;top:22px;left:24px;z-index:20}
+  #mStick svg{width:56px;height:56px;display:block;border:4px solid #fff;background:#fff}
   /* native anchor/focus scrolling clears the bar and breathes above the keyboard */
-  html{scroll-padding:var(--stickH,92px) 0 24px}
+  html{scroll-padding:24px 0 24px}   /* nothing is pinned now — just breathing room */
   .msec{padding:40px 0}          /* 80px of whitespace between sections */
   /* hero: first section fills the first viewport exactly — 100svh minus the
      sticky icon's MEASURED height (JS sets --stickH; 92px is only the fallback).
@@ -344,8 +344,7 @@ p{text-wrap:pretty}
   #mStickIcon{transition:transform .45s var(--ease-out)}
   #mStickIcon.winking{transform:rotate(-8deg)}
 
-  /* page has a fixed sticky header — button scrolls land headings BELOW it */
-  .msec{scroll-margin-top:var(--stickH,92px)}
+  .msec{scroll-margin-top:24px}
 
   /* PERMANENT keyboard headroom (the load-bearing fix, pure CSS, no timing).
      The signup field is the last thing on the page, so without this the page
@@ -356,8 +355,12 @@ p{text-wrap:pretty}
      Safari can always scroll, so it never pans. 55svh (~460px) comfortably
      exceeds the tallest iPhone keyboard (~340px). Cost: empty space below the
      form that nobody scrolls to. Cheap price for deleting a whole bug class. */
-  #mobile{padding-bottom:var(--kbpad,55svh)}
-  @supports not (height:1svh){ #mobile{padding-bottom:var(--kbpad,55vh)} }
+  /* No keyboard padding. iOS's own pan lifts the page by exactly the keyboard
+     height, which lands the form right above it — correct placement, for free.
+     The 433px of headroom was what let Safari scroll freely and overshoot,
+     which is what made the field fly too high. `?pad=NN` still overrides for
+     testing. */
+  #mobile{padding-bottom:var(--kbpad,0px)}
 }
 </style>
 </head>
@@ -1022,8 +1025,10 @@ function buildMobile(){
   const stick=document.createElement('div'); stick.id='mStick';
   const topIcon=document.getElementById('mark').cloneNode(true); topIcon.removeAttribute('id'); topIcon.id='mStickIcon';
   stick.appendChild(topIcon); m.appendChild(stick);
-  // measure the sticky header so the hero's 100svh math stays exact
-  const setStickH=()=>document.documentElement.style.setProperty('--stickH', stick.offsetHeight+'px');
+  // --stickH is just the space #mobile reserves for the absolute icon; the
+  // hero subtracts it so the first screen is exactly one viewport tall
+  const setStickH=()=>document.documentElement.style.setProperty('--stickH',
+    getComputedStyle(m).paddingTop);
   requestAnimationFrame(setStickH); addEventListener('resize',setStickH);
   /* ---- keyboard: give the page ROOM instead of chasing the viewport ----
      Root cause of the icon vanishing: the signup field sits at the bottom of
@@ -1141,11 +1146,15 @@ function buildMobile(){
       const vis=r.top>=vTop-2 && r.bottom<=vTop+vH+2;
       if(sawFocus){ peakPan=Math.max(peakPan,Math.round(vTop)); if(!vis) everHidden=true;
         if(vH<innerHeight-60) kbSeen=Math.max(kbSeen, Math.round(innerHeight-vH)); }
+      // vv.height IS the exact keyboard-free area — measured on this device,
+      // never estimated. gapFormToKb is the real distance from the form's
+      // bottom edge to the top of the keyboard. Target: 24.
+      const gap = form ? Math.round(vTop+vH-form.getBoundingClientRect().bottom) : null;
       hud.textContent=
-        `EVER_PANNED ${peakPan>0} (peak ${peakPan})   ICON_EVER_HIDDEN ${everHidden}\n`+
-        `now pan ${Math.round(vTop)}  iconVis ${vis}  kbHeight ${kbSeen||'-'}\n`+
-        `vvH ${Math.round(vH)}  innerH ${innerHeight}  scrollY ${Math.round(scrollY)}  pad ${m.style.paddingBottom||'-'}\n`+
-        `gapFormToKb ${form?Math.round(vTop+vH-form.getBoundingClientRect().bottom):'-'}  barTop ${Math.round(r.top-vTop)}`;
+        `GAP form→keyboard  ${gap}px      (target 24)\n`+
+        `keyboard height    ${kbSeen||'-'}px  (measured, not guessed)\n`+
+        `keyboard-free area ${Math.round(vH)}px of ${innerHeight}px\n`+
+        `panned ${Math.round(vTop)}px   scrollY ${Math.round(scrollY)}   pad ${getComputedStyle(m).paddingBottom}`;
     };
     const fld=document.querySelector('#mobile .field');
     if(fld){ fld.addEventListener('focusin',()=>{ sawFocus=true; peakPan=0; everHidden=false; kbSeen=0; }); }
@@ -1172,8 +1181,7 @@ function buildMobile(){
   m.querySelectorAll('.btn[data-go],[data-go].btn').forEach(b=>{
     b.onclick=e=>{ e.preventDefault(); const sec=b.closest('.msec');
       const next=sec && sec.nextElementSibling; if(!next) return;
-      const stickH=stick.offsetHeight;
-      scrollTo({top:next.getBoundingClientRect().top+scrollY-stickH, behavior:'smooth'}); };
+      scrollTo({top:next.getBoundingClientRect().top+scrollY-24, behavior:'smooth'}); };
   });
 }
 /* mobile signup → morph the Kinda dope section into Boomski in place + wink sticky icon */
