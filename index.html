@@ -70,8 +70,10 @@ body{margin:0;font-family:var(--font);color:#000;background:#fff;-webkit-font-sm
 #mark:hover .face-base{opacity:0}
 #mark:hover .face-wink{opacity:1}
 /* signup success: hold the wink + a one-shot celebratory pop */
-#mark.winking .face-base{opacity:0}
-#mark.winking .face-wink{opacity:1}
+/* #mStickIcon is the mobile clone of #mark — it must swap faces too, or
+   signup only tilts a still-smiling Buddy instead of winking. */
+#mark.winking .face-base,#mStickIcon.winking .face-base{opacity:0}
+#mark.winking .face-wink,#mStickIcon.winking .face-wink{opacity:1}
 #mark.pop{animation:winkPop .5s var(--ease-out)}
 @keyframes winkPop{0%{transform:scale(1) rotate(0)}40%{transform:scale(1.12) rotate(-6deg)}100%{transform:scale(1) rotate(0)}}
 
@@ -291,10 +293,13 @@ p{text-wrap:pretty}
   /* Reads as a deliberate floating badge, not an accidental overlap: an
      opaque white pad with a soft halo, so headings passing underneath are
      cleanly separated instead of colliding mid-letter. */
+  /* white halo only — no dark ring (a 1px rgba(0,0,0,.04) shadow here read as
+     an unwanted outline around the white pad) */
   #mStick svg{width:56px;height:56px;display:block;background:#fff;
     border:6px solid #fff;border-radius:16px;
-    box-shadow:0 0 0 1px rgba(0,0,0,.04), 0 2px 10px rgba(255,255,255,.9),
-               0 0 22px 14px rgba(255,255,255,.95)}
+    box-shadow:0 0 22px 14px rgba(255,255,255,.95);
+    transition:width .5s var(--ease-out), height .5s var(--ease-out),
+               transform .5s var(--ease-out)}
   /* native anchor/focus scrolling clears the bar and breathes above the keyboard */
   html{scroll-padding:24px 0 24px}   /* nothing is pinned now — just breathing room */
   .msec{padding:40px 0}          /* 80px of whitespace between sections */
@@ -352,8 +357,11 @@ p{text-wrap:pretty}
   .mbody .form .btn{margin-top:0}
 
   /* signup: the sticky icon takes over the celebration — winks and tilts */
-  #mStickIcon{transition:transform .45s var(--ease-out)}
+  /* Signup celebration: Buddy winks, tilts, and roughly doubles in size.
+     Growing width/height (not scale) keeps the top-left corner anchored, so
+     the icon stays on its 22px/24px margins and grows down-and-right. */
   #mStickIcon.winking{transform:rotate(-8deg)}
+  #mStick svg.winking{width:112px;height:112px}
 
   .msec{scroll-margin-top:24px}
 
