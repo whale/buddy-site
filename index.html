@@ -272,6 +272,9 @@ p{text-wrap:pretty}
      bursts BEHIND the icon. Trade-off accepted: while the iOS keyboard is up
      the icon may pan out of view — it's back before the confetti fires. */
   #mStick{position:sticky;top:0;z-index:70;padding:22px 0 14px;background:#fff}
+  /* solid cover ABOVE the bar — iOS lets scrolled content show through the
+     translucent status-bar zone above the layout viewport; paint it white */
+  #mStick::before{content:'';position:absolute;left:-24px;right:-24px;bottom:100%;height:220px;background:#fff}
   #mStick::after{content:'';position:absolute;left:-24px;right:-24px;top:100%;height:18px;
     background:linear-gradient(#fff,rgba(255,255,255,0))}
   #mStick svg{width:56px;height:56px;display:block}
@@ -309,17 +312,15 @@ p{text-wrap:pretty}
   .mcard .ddate{padding:24px 24px}
   /* static app preview — a DOM clone of the real drawer card (crisp SVGs,
      true hairlines, CSS-scaled). Non-interactive on purpose. */
-  .mstatic{margin-top:24px;border:1px solid #e5e5e5;border-radius:24px;overflow:hidden;
-    background:#fff;pointer-events:none}
-  .mstatic .bcard,.mstatic #listCard{width:100% !important;border-radius:0}
+  /* app-faithful: TWO cards like the real drawer (chrome+date, then list),
+     8px apart, radius 24 each, 1px stroke. NO typography or padding overrides —
+     the app's own metrics render as-is, the card is just narrower. */
+  .mstatic{margin-top:24px;pointer-events:none;display:flex;flex-direction:column;gap:8px}
+  .mstatic .bcard,.mstatic #listCard{width:100% !important;border:1px solid #e5e5e5;
+    border-radius:24px;overflow:hidden}
   .mstatic #listCard{height:auto;flex:none}
-  .mstatic #list{height:auto;overflow:visible;--fs:20px;--vpad:20px;--px:24px}
+  .mstatic #list{height:auto;overflow:visible;--fs:24px;--vpad:22px;--px:32px}   /* app's natural fit values */
   .mstatic .buddy-row{flex:0 0 auto}
-  .mstatic .dhead{padding:20px 24px}
-  .mstatic .ddate{padding:24px 24px}
-  .mstatic .dnum{font-size:52px}
-  .mstatic .dwk{font-size:21px}
-  .mstatic .dwx{width:42px;height:42px}
   /* body copy on mobile wraps to the full measure — 'pretty' was pulling
      words down and leaving ragged right edges on short columns */
   .mp,.mfeat{text-wrap:wrap}
@@ -1006,6 +1007,23 @@ function buildMobile(){
   // measure the sticky header so the hero's 100svh math stays exact
   const setStickH=()=>document.documentElement.style.setProperty('--stickH', stick.offsetHeight+'px');
   requestAnimationFrame(setStickH); addEventListener('resize',setStickH);
+  // KEYBOARD-ONLY pin: while scrolling the page this code does nothing at all
+  // (plain CSS sticky — that's what killed the jitter). Only when the iOS
+  // keyboard actually opens does the bar switch to fixed and track the visual
+  // viewport, so the icon never leaves the screen mid-signup.
+  if(window.visualViewport){
+    const vv=visualViewport; let kb=false;
+    vv.addEventListener('scroll',()=>{ if(kb) stick.style.top=vv.offsetTop+'px'; });
+    vv.addEventListener('resize',()=>{
+      const open=vv.height < innerHeight-80;
+      if(open===kb){ if(kb) stick.style.top=vv.offsetTop+'px'; return; }
+      kb=open;
+      if(kb){ const r=stick.getBoundingClientRect();
+        m.style.paddingTop=r.height+'px';   // hold the layout gap
+        stick.style.cssText=`position:fixed;left:${r.left}px;width:${r.width}px;top:${vv.offsetTop}px`;
+      } else { stick.style.cssText=''; m.style.paddingTop=''; }
+    });
+  }
 
   // touch tooltips: tap an underlined term → tooltip for 2s, then fade (no hover on mobile)
   m.addEventListener('click',e=>{
