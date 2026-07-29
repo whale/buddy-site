@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "mcp__plugin_playwright_playwright__browser_close",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_type",
+      "mcp__plugin_playwright_playwright__browser_hover",
+      "mcp__plugin_figma_figma__get_screenshot",
+      "mcp__plugin_figma_figma__get_metadata",
+      "mcp__plugin_figma_figma__get_design_context",
+      "mcp__plugin_figma_figma__download_assets",
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "mcp__notion-whale__notion-query-database-view",
+      "Bash(open -a Arc *)",
+      "Bash(open -a Safari *)",
+      "Bash(xcrun simctl io *)",
+      "Bash(xcrun simctl list *)",
+      "Bash(xcrun simctl openurl *)",
+      "Bash(defaults read *)",
+      "Bash(curl -s http://localhost:*)",
+      "Bash(curl -sI http://localhost:*)",
+      "Bash(mdfind *)",
+      "Bash(ffprobe *)"
+    ]
+  }
+}

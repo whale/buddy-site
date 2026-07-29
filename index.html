@@ -1013,29 +1013,38 @@ function buildMobile(){
   // measure the sticky header so the hero's 100svh math stays exact
   const setStickH=()=>document.documentElement.style.setProperty('--stickH', stick.offsetHeight+'px');
   requestAnimationFrame(setStickH); addEventListener('resize',setStickH);
-  // FOCUS-SCOPED pin: normal scrolling never touches JS (plain CSS sticky —
-  // that's the measured zero-jitter path). The pin engages on the ONE
-  // deterministic signal — the email field taking focus — not on viewport
-  // heuristics: modern iOS shrinks innerHeight together with the visual
-  // viewport, so the old `vv.height < innerHeight-80` check never fired and
-  // the icon panned away with the keyboard. While focused, an rAF loop tracks
-  // vv.offsetTop (smooth per-frame follow, nothing to chase); one instant
-  // correction parks the form 24px above the keyboard after iOS settles.
+  /* ---- keyboard: give the page ROOM instead of chasing the viewport ----
+     Root cause of the icon vanishing: the signup field sits at the bottom of
+     the document, so when the keyboard opens Safari has nothing left to
+     scroll and instead PANS the layout viewport upward. Sticky (and fixed)
+     elements are anchored to the layout viewport, so the bar rides off the
+     top of the visible area. Worse, iOS freezes fixed-position compositing
+     during that pan — the previous rAF pin wrote correct `top` values every
+     frame to an element Safari had stopped repainting, which is why it
+     measured perfect and still disappeared on device.
+
+     So: on focus, add scroll headroom below the content. Safari can now
+     SCROLL to reveal the field (no pan, visualViewport.offsetTop stays 0)
+     and plain CSS sticky keeps working with zero JavaScript — the only
+     pinning mechanism measured jitter-free. Headroom is removed on blur.
+     `svh` is keyboard-independent, so the padding can't feed back into the
+     viewport math. 65svh comfortably exceeds the tallest iPhone keyboard. */
   window.__mPin=(form,fld)=>{
-    if(!fld||!window.visualViewport) return;
-    const vv=visualViewport; let raf=null;
-    const loop=()=>{ stick.style.top=vv.offsetTop+'px'; raf=requestAnimationFrame(loop); };
-    fld.addEventListener('focusin',()=>{
-      const r=stick.getBoundingClientRect();
-      m.style.paddingTop=r.height+'px';                 // hold the layout gap
-      stick.style.cssText=`position:fixed;left:${r.left}px;width:${r.width}px;top:${vv.offsetTop}px;z-index:70`;
-      raf=requestAnimationFrame(loop);
-      setTimeout(()=>{ if(document.activeElement!==fld) return;
-        const d=form.getBoundingClientRect().bottom-(vv.offsetTop+vv.height-24);
-        if(Math.abs(d)>6) scrollBy(0,d);                // single instant correction, no animation to fight
-      },650);
-    });
-    fld.addEventListener('focusout',()=>{ cancelAnimationFrame(raf); stick.style.cssText=''; m.style.paddingTop=''; });
+    if(!fld) return;
+    const clearWhenSafe=()=>{
+      // Dropping the headroom while scrolled into it would clamp scrollY and
+      // yank the page — right as the signup celebration plays. So shed only
+      // what the current scroll position can spare, and finish the job on a
+      // later scroll once it's free.
+      const doc=document.documentElement;
+      const pad=parseFloat(getComputedStyle(m).paddingBottom)||0;
+      const maxWithout=doc.scrollHeight-pad-innerHeight;
+      const needed=Math.max(0, Math.ceil(scrollY-maxWithout));
+      m.style.paddingBottom = needed ? needed+'px' : '';
+      if(needed) addEventListener('scroll',clearWhenSafe,{once:true,passive:true});
+    };
+    fld.addEventListener('focusin',()=>{ m.style.paddingBottom='65svh'; });
+    fld.addEventListener('focusout',clearWhenSafe);
   };
 
   // touch tooltips: tap an underlined term → tooltip for 2s, then fade (no hover on mobile)
@@ -1111,13 +1120,24 @@ function buildMobile(){
     const hud=document.createElement('pre');
     hud.style.cssText='position:fixed;bottom:120px;left:8px;right:8px;z-index:9999;background:#000;color:#0f0;font-size:11px;padding:8px;white-space:pre-wrap;pointer-events:none';
     document.body.appendChild(hud);
-    const dump=()=>{ const cs=getComputedStyle(stick); const r=stick.getBoundingClientRect();
-      const mid=document.elementFromPoint(200, r.top+r.height-6);
-      hud.textContent=JSON.stringify({pos:cs.position,z:cs.zIndex,bg:cs.backgroundColor,
-        rect:[Math.round(r.top),Math.round(r.height)], scrollY:Math.round(scrollY),
-        onTopAtBar: mid&&(mid.id||mid.className||mid.tagName),
-        before:getComputedStyle(stick,'::before').height},null,1); };
-    setInterval(dump,500); dump();
+    /* PAN is the whole ballgame: visualViewport.offsetTop > 0 means Safari
+       panned the layout viewport (icon rides away, unfixable from JS);
+       offsetTop === 0 means it scrolled instead (sticky keeps working).
+       iconVisible is the user-facing truth — is the bar inside the visible
+       area — measured against the VISUAL viewport, not the layout one. */
+    const vv=window.visualViewport;
+    const dump=()=>{ const r=stick.getBoundingClientRect();
+      const vTop=vv?vv.offsetTop:0, vH=vv?vv.height:innerHeight;
+      const form=document.querySelector('#mobile .form');
+      hud.textContent=JSON.stringify({
+        PANNED: Math.round(vTop) > 0,
+        iconVisible: r.top>=vTop-2 && r.bottom<=vTop+vH+2,
+        vvOffsetTop:Math.round(vTop), vvH:Math.round(vH), innerH:innerHeight,
+        barTopInVisual:Math.round(r.top-vTop),
+        gapFormToKb: form?Math.round(vTop+vH-form.getBoundingClientRect().bottom):null,
+        padBottom:m.style.paddingBottom||'(none)', scrollY:Math.round(scrollY)},null,1); };
+    setInterval(dump,300); dump();
+    if(vv){ vv.addEventListener('resize',dump); vv.addEventListener('scroll',dump); }
   }
   // test hook: ?goto=app|feat|signup lands on a section with no gestures
   // (lets the iOS Simulator be driven by URL alone)
