@@ -1013,23 +1013,30 @@ function buildMobile(){
   // measure the sticky header so the hero's 100svh math stays exact
   const setStickH=()=>document.documentElement.style.setProperty('--stickH', stick.offsetHeight+'px');
   requestAnimationFrame(setStickH); addEventListener('resize',setStickH);
-  // KEYBOARD-ONLY pin: while scrolling the page this code does nothing at all
-  // (plain CSS sticky — that's what killed the jitter). Only when the iOS
-  // keyboard actually opens does the bar switch to fixed and track the visual
-  // viewport, so the icon never leaves the screen mid-signup.
-  if(window.visualViewport){
-    const vv=visualViewport; let kb=false;
-    vv.addEventListener('scroll',()=>{ if(kb) stick.style.top=vv.offsetTop+'px'; });
-    vv.addEventListener('resize',()=>{
-      const open=vv.height < innerHeight-80;
-      if(open===kb){ if(kb) stick.style.top=vv.offsetTop+'px'; return; }
-      kb=open;
-      if(kb){ const r=stick.getBoundingClientRect();
-        m.style.paddingTop=r.height+'px';   // hold the layout gap
-        stick.style.cssText=`position:fixed;left:${r.left}px;width:${r.width}px;top:${vv.offsetTop}px`;
-      } else { stick.style.cssText=''; m.style.paddingTop=''; }
+  // FOCUS-SCOPED pin: normal scrolling never touches JS (plain CSS sticky —
+  // that's the measured zero-jitter path). The pin engages on the ONE
+  // deterministic signal — the email field taking focus — not on viewport
+  // heuristics: modern iOS shrinks innerHeight together with the visual
+  // viewport, so the old `vv.height < innerHeight-80` check never fired and
+  // the icon panned away with the keyboard. While focused, an rAF loop tracks
+  // vv.offsetTop (smooth per-frame follow, nothing to chase); one instant
+  // correction parks the form 24px above the keyboard after iOS settles.
+  window.__mPin=(form,fld)=>{
+    if(!fld||!window.visualViewport) return;
+    const vv=visualViewport; let raf=null;
+    const loop=()=>{ stick.style.top=vv.offsetTop+'px'; raf=requestAnimationFrame(loop); };
+    fld.addEventListener('focusin',()=>{
+      const r=stick.getBoundingClientRect();
+      m.style.paddingTop=r.height+'px';                 // hold the layout gap
+      stick.style.cssText=`position:fixed;left:${r.left}px;width:${r.width}px;top:${vv.offsetTop}px;z-index:70`;
+      raf=requestAnimationFrame(loop);
+      setTimeout(()=>{ if(document.activeElement!==fld) return;
+        const d=form.getBoundingClientRect().bottom-(vv.offsetTop+vv.height-24);
+        if(Math.abs(d)>6) scrollBy(0,d);                // single instant correction, no animation to fight
+      },650);
     });
-  }
+    fld.addEventListener('focusout',()=>{ cancelAnimationFrame(raf); stick.style.cssText=''; m.style.paddingTop=''; });
+  };
 
   // touch tooltips: tap an underlined term → tooltip for 2s, then fade (no hover on mobile)
   m.addEventListener('click',e=>{
@@ -1093,8 +1100,7 @@ function buildMobile(){
       mKindaSec={sec,h,body};
       const form=body.querySelector('.form');
       if(form) form.onsubmit=e=>{ e.preventDefault(); mobileSignup(mKindaSec, topIcon); };
-      // keyboard positioning is native + CSS (html scroll-padding-bottom) —
-      // the JS scroll choreography fought iOS and read as up/down weirdness
+      window.__mPin(form, form&&form.querySelector('.field'));   // focus-scoped icon pin + 24px keyboard gap
       if(state.signedUp) applyMobileBoomski(mKindaSec, topIcon, false);
     }
     m.appendChild(sec);
