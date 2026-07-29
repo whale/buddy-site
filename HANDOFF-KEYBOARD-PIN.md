@@ -10,6 +10,44 @@ On iPhone Safari (real device), tapping the email signup field opens the keyboar
 2. User taps the email field (last section, bottom of the page) → keyboard opens → the icon bar must remain visible at the top of the *visible* area, and the form should sit ~24px above the keyboard.
 3. User submits → keyboard closes → confetti fires (450ms delayed, forced past reduce-motion) behind the icon (confetti z-index 60, bar 70) while the icon winks and tilts.
 
+## UPDATE 2026-07-29 — root cause found, fix shipped, needs one human tap
+
+**Root cause (why every previous attempt failed):** iOS Safari *freezes
+compositing of `position:fixed` elements while it pans the layout viewport*.
+Attempt 4's rAF loop wrote correct `top` values every frame to an element
+Safari had already stopped repainting — which is exactly why it measured
+perfect in automation and stayed invisible on glass. Chasing the viewport
+cannot work, by construction.
+
+**Shipped fix (PR #22):** remove the *cause* of the pan. Safari only pans when
+it cannot scroll far enough to reveal the focused field. On `focusin` the page
+adds `padding-bottom: 65svh` to `#mobile`, so Safari scrolls instead — the
+layout viewport never moves, `visualViewport.offsetTop` stays 0, and plain CSS
+sticky keeps the icon in place with **zero JavaScript**. The headroom is shed
+on blur without jumping the page (only what the current scroll can spare, the
+rest on a later scroll).
+
+**Verified in the iOS Simulator:** headroom applies on focus (doc height
+2626→3090) and clears on blur; the bar stays `position:sticky` with no inline
+overrides; blurring while scrolled deep into the headroom does not move the
+page (scrollY 1912→1913, padding 65svh→1px→none, height restored).
+
+**NOT verified:** behavior with a real software keyboard.
+`safaridriver` cannot summon the iOS keyboard — element clicks and low-level
+W3C touch taps both fail to focus (programmatic `.focus()` works but summons
+no keyboard). Confirmed by screenshot. This needs a human tap, either in the
+Simulator or on a device.
+
+**The 30-second check:** open `buddy.whale.fyi/?goto=signup&vv=1` on an
+iPhone, tap the email field, read the HUD. `PANNED: false` and
+`iconVisible: true` means solved; `gapFormToKb` reports the pixel gap above
+the keyboard (target ~24).
+
+Headroom arithmetic, for tuning: viewport 714, form bottom 674, keyboard
+~340 → the form must rise ~324px; 65svh supplies 464px, a 140px margin.
+
+## Original diagnosis (2026-07-28)
+
 ## Current state on device (user report, 2026-07-28)
 
 - Form position after focus: close, "slightly lower" than before — acceptable-ish.

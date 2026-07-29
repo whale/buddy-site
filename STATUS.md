@@ -18,14 +18,30 @@ Updated: 2026-07-28 (end of session, PRs #3-#20 merged this day)
 
 ## Broken / unresolved
 
-- THE open bug: Buddy icon disappears on a real iPhone while the signup keyboard is open. Four attempts documented in HANDOFF-KEYBOARD-PIN.md with root causes; the most promising untried fix (scroll headroom on focus so Safari scrolls instead of panning) is described there. User is handing this to a fresh agent.
-- Form-above-keyboard gap: improved ("slightly lower"), not confirmed at the intended 24px on device.
+- **Keyboard/icon bug — root cause found, fix shipped (PR #22), awaiting one human tap.**
+  iOS freezes `position:fixed` compositing while it pans the layout viewport, so every
+  viewport-chasing attempt was doomed by construction. The fix removes the pan itself by
+  adding scroll headroom on focus; plain CSS sticky then works with zero JS. Simulator-verified
+  for engage/release and no-jump; NOT verified with a real software keyboard, because
+  safaridriver cannot summon one (element clicks and W3C touch taps both fail to focus).
+  30-second check: `buddy.whale.fyi/?goto=signup&vv=1` on an iPhone, tap the field, read the
+  HUD — want `PANNED: false`, `iconVisible: true`. Full detail in HANDOFF-KEYBOARD-PIN.md.
+- Form-above-keyboard gap: targeted at 24px via `scroll-padding-bottom`; unconfirmed on device.
 
-## Cleanup candidates (user never confirmed)
+## Cleanup — done 2026-07-29
 
-- Draft PR #8 (abandoned live-mobile-drawer prototype) — close?
-- /m-live.html and /slides-preview.html on production — retire?
-- Feature-row + slide copy are agent drafts throughout — user owns voice, still to be rewritten in their words.
+- Draft PR #8 (live-mobile-drawer prototype): closed, superseded by the walkthrough.
+- `/m-live.html` and `/slides-preview.html`: deleted from production.
+- `.claude/settings.json` added — read-only tool allowlist (browser/Figma reads, Simulator
+  screenshots, localhost curl). Excludes node/python3, git writes, installs, `defaults write`.
+- `CLAUDE.md` now mandates real-WebKit verification for mobile claims, with the full
+  safaridriver + Simulator recipe. README corrected (was still describing four slides).
+
+## Still open
+
+- Feature-row + slide copy are agent drafts throughout — user owns voice, still to be
+  rewritten in their words.
+- Signup form is not wired to any email backend (deliberately deferred all along).
 
 ## Test rig (reusable)
 
