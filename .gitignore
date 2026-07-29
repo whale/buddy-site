@@ -2,3 +2,5 @@
 *.png
 !assets/**/*.png
 !favicon*
+
+.vercel/
