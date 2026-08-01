@@ -10,7 +10,34 @@ On iPhone Safari (real device), tapping the email signup field opens the keyboar
 2. User taps the email field (last section, bottom of the page) → keyboard opens → the icon bar must remain visible at the top of the *visible* area, and the form should sit ~24px above the keyboard.
 3. User submits → keyboard closes → confetti fires (450ms delayed, forced past reduce-motion) behind the icon (confetti z-index 60, bar 70) while the icon winks and tilts.
 
-## UPDATE 2026-07-29 — root cause found, fix shipped, needs one human tap
+## RESOLVED 2026-07-29 — confirmed fixed on device
+
+**The fix: `transform`, not `top`.** The icon is `position:fixed` and is held
+against the keyboard pan by `translate3d(0, visualViewport.offsetTop, 0)`,
+updated on visualViewport `scroll`/`resize`. Transforms are composited, so they
+keep painting *through* the pan. Every earlier attempt animated `top` — a
+layout property iOS does not reliably repaint mid-pan — which is why those
+attempts computed perfectly correct values onto an element Safari had stopped
+drawing, and so measured flawless in automation while vanishing on device.
+
+Confirmed by a device screenshot from Whale: icon visible, keyboard open.
+
+**Deliberately NOT fixed — Safari centres the focused field.** When a field is
+focused and the keyboard doesn't fit, WebKit scrolls to centre it in the
+remaining space. That is documented, intentional behaviour with no CSS
+override (`scroll-padding` does not apply; Safari's keyboard reveal doesn't go
+through the scroll-snap machinery). Known workarounds — the transform-offscreen
+trick, `position:fixed` on `body` (causes phantom bottom whitespace on iOS),
+scroll-lock libraries — all trade this for a worse problem. Whale accepted the
+behaviour. If the resulting whitespace under the form ever needs addressing,
+the answer is CONTENT below the form, not a scroll override.
+
+**Do not reintroduce:** any JS that scrolls on focus (it lands as a visible
+two-step jump — Safari scrolls once, we scroll again), keyboard-height
+estimates (use `visualViewport.height`, which is exact), or bottom padding as
+a keyboard workaround (it gives Safari room to overshoot).
+
+## Historical: root cause investigation (superseded by the above)
 
 **Root cause (why every previous attempt failed):** iOS Safari *freezes
 compositing of `position:fixed` elements while it pans the layout viewport*.

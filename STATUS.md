@@ -16,17 +16,18 @@ Updated: 2026-07-28 (end of session, PRs #3-#20 merged this day)
 - No horizontal overflow at any mobile section; no console errors.
 - Status-bar ghost-text on iPhone is iOS Safari's own toolbar frost (control test: Wikipedia ghosts identically) — not fixable in page CSS; theme-color white shipped as the only lever.
 
-## Broken / unresolved
+## Keyboard/icon bug — RESOLVED 2026-07-29, confirmed on device
 
-- **Keyboard/icon bug — root cause found, fix shipped (PR #22), awaiting one human tap.**
-  iOS freezes `position:fixed` compositing while it pans the layout viewport, so every
-  viewport-chasing attempt was doomed by construction. The fix removes the pan itself by
-  adding scroll headroom on focus; plain CSS sticky then works with zero JS. Simulator-verified
-  for engage/release and no-jump; NOT verified with a real software keyboard, because
-  safaridriver cannot summon one (element clicks and W3C touch taps both fail to focus).
-  30-second check: `buddy.whale.fyi/?goto=signup&vv=1` on an iPhone, tap the field, read the
-  HUD — want `PANNED: false`, `iconVisible: true`. Full detail in HANDOFF-KEYBOARD-PIN.md.
-- Form-above-keyboard gap: targeted at 24px via `scroll-padding-bottom`; unconfirmed on device.
+The pinned icon stays visible with the keyboard open. Fix: hold it with a composited
+`transform` (`translate3d` from `visualViewport.offsetTop`) instead of animating `top`.
+iOS doesn't reliably repaint layout properties mid-pan, which is why ~6 earlier attempts
+measured perfect in automation and vanished on the phone. Full write-up, plus a
+"do not reintroduce" list, in HANDOFF-KEYBOARD-PIN.md.
+
+Accepted as-is: Safari centres the focused field in the space above the keyboard, leaving
+whitespace below the form. Documented WebKit behaviour, no clean override (researched —
+every workaround trades it for something worse). If it ever needs addressing, the answer
+is content below the form, not a scroll override.
 
 ## Cleanup — done 2026-07-29
 
