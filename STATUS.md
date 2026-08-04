@@ -1,55 +1,69 @@
 # buddy-site — Status
 
-Updated: 2026-07-28 (end of session, PRs #3-#20 merged this day)
+Updated: 2026-08-04. Branch `main`, latest commit `b2e59df`. Tree clean, no open PRs.
+Live: https://buddy.whale.fyi (Vercel, deploys on merge to `main`).
 
-## Done and live at buddy.whale.fyi
+## What the site is
 
-- Six-slide desktop story is the index: Hey → Phew (add task) → Feeling ambitious? (fill to red) → Wanna have a done party? (check off, confetti) → Hidden when you don't → Kinda dope/Boomski signup.
-- Adaptive add buttons (become "Next →" at the 6-cap, revert when a task completes), black stretch-animated Figma arrow that turns red with escalation, task mode switcher pills under the drawer (Super Noticer default, Walter White, Thunder Cats), list reseeds on every refresh, signup form returns on refresh.
-- Mobile is a 4-section walkthrough: full-viewport hero (button pinned bottom, down arrow) → Phew + app-faithful DOM-clone preview (two stroked cards, app-native metrics, non-interactive) → "Looks cool. What's it do?" feature rows → "Sign up to get Buddy". Sticky icon winks+tilts on signup; confetti on signup (forced past reduce-motion) and when the feature list scrolls in.
-- Squeezed-row fix (action icons flip horizontal in short rows) shipped here AND ported to the Mac app (whale/buddy PR #153, merged).
+**Desktop** — six-slide scroll story with the real Buddy engine in a right-edge drawer:
+Hey → Phew (add a task) → Feeling ambitious? (fill to the red cap) → Wanna have a done
+party? (check one off, confetti) → Hidden when you don't → K. Byeee! (signup → Boomski).
+Grey pills under the drawer switch demo tasks between Super Noticer (default), Walter
+White, Thunder Cats. List reseeds every refresh.
 
-## Verified this session
+**Mobile** — four-section narrated walkthrough: hero → the app (static DOM clone of the
+drawer, non-interactive) → "Looks cool. What's it do?" feature rows → "Sign up to get
+Buddy". Pinned Buddy icon top-left; on signup it winks, tilts, and doubles in size.
 
-- Scroll jitter: 0.0px bar movement across 181 sampled frames during real touch pans (iOS Simulator, WebKit, safaridriver).
-- Submit path: focus → pin engages; valid email submit → Boomski morph + wink + 98 confetti particles; blur → pin releases clean.
-- No horizontal overflow at any mobile section; no console errors.
-- Status-bar ghost-text on iPhone is iOS Safari's own toolbar frost (control test: Wikipedia ghosts identically) — not fixable in page CSS; theme-color white shipped as the only lever.
+## Verified 2026-08-04 on the live site
 
-## Keyboard/icon bug — RESOLVED 2026-07-29, confirmed on device
+- Desktop: all six slides, three mode pills, pointer arrow, red state at the six-task cap,
+  confetti on completion.
+- Mobile (390px): four sections correct, icon `position:fixed`, signup produces the wink
+  face, the icon growth, and the "Boomski." morph.
+- Not re-verified this session: real-device keyboard behaviour (see below — it was
+  confirmed by device screenshot on 2026-07-29 and is unchanged since).
+
+## Keyboard/icon bug — RESOLVED, confirmed on device
 
 The pinned icon stays visible with the keyboard open. Fix: hold it with a composited
 `transform` (`translate3d` from `visualViewport.offsetTop`) instead of animating `top`.
-iOS doesn't reliably repaint layout properties mid-pan, which is why ~6 earlier attempts
-measured perfect in automation and vanished on the phone. Full write-up, plus a
-"do not reintroduce" list, in HANDOFF-KEYBOARD-PIN.md.
+iOS doesn't reliably repaint layout properties mid-pan — which is why roughly six earlier
+attempts measured perfect in automation and vanished on the phone. Full write-up and a
+**do-not-reintroduce list** in `HANDOFF-KEYBOARD-PIN.md`. Read it before touching mobile
+keyboard, viewport, or pinned-element code.
 
-Accepted as-is: Safari centres the focused field in the space above the keyboard, leaving
-whitespace below the form. Documented WebKit behaviour, no clean override (researched —
-every workaround trades it for something worse). If it ever needs addressing, the answer
-is content below the form, not a scroll override.
+Accepted deliberately: Safari centres the focused field in the space above the keyboard,
+leaving whitespace under the form. Documented WebKit behaviour, no clean override
+(researched — every workaround trades it for something worse). If it ever needs
+addressing, the answer is *content below the form*, not a scroll override.
 
-## Cleanup — done 2026-07-29
+## Open — all need Whale, none are blocked on code
 
-- Draft PR #8 (live-mobile-drawer prototype): closed, superseded by the walkthrough.
-- `/m-live.html` and `/slides-preview.html`: deleted from production.
-- `.claude/settings.json` added — read-only tool allowlist (browser/Figma reads, Simulator
-  screenshots, localhost curl). Excludes node/python3, git writes, installs, `defaults write`.
-- `CLAUDE.md` now mandates real-WebKit verification for mobile claims, with the full
-  safaridriver + Simulator recipe. README corrected (was still describing four slides).
+1. **A line of copy under the signup form.** Would fill the whitespace Safari's centring
+   leaves and make it read as intentional. Needs his words, not mine.
+2. **Feature-row and slide copy are all agent drafts.** He owns voice; these should be
+   rewritten in his.
+3. **Signup form is not wired to any email backend.** Deferred throughout; the biggest
+   remaining functional gap. Needs a provider decision first.
 
-## Still open
+## Testing rig (works, reuse it)
 
-- Feature-row + slide copy are agent drafts throughout — user owns voice, still to be
-  rewritten in their words.
-- Signup form is not wired to any email backend (deliberately deferred all along).
-
-## Test rig (reusable)
-
-- Local: `python3 -m http.server 4400` in repo root.
-- Page hooks: `?goto=app|feat|signup` (URL-driven scroll), `?vv=1` (on-page debug HUD).
-- Simulator: `safaridriver -p 4444` + WebDriver caps `{browserName:'Safari', platformName:'iOS', 'safari:useSimulator':true}`; screenshots via `xcrun simctl io booted screenshot f.png`. Soft keyboard blocked until `defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false` is run manually (agent-denied) + Simulator relaunch.
+- Local: `python3 -m http.server 4400` from the repo root (was running; stopped at
+  session end).
+- URL flags: `?tune` type panel · `?goto=app|feat|signup` jump to a mobile section ·
+  `?vv=1` on-page debug HUD (peak-tracks pan + icon visibility) · `?pad=NN` override
+  `--kbpad`.
+- Real WebKit: `safaridriver -p 4444`, then WebDriver sessions with
+  `{browserName:'Safari', platformName:'iOS', 'safari:useSimulator':true}` against the
+  booted iPhone Simulator. Drive from a Node script with `fetch` (`curl` to non-localhost
+  is permission-gated). Screenshots: `xcrun simctl io booted screenshot f.png`.
+- **Known hard limit:** safaridriver cannot summon the iOS software keyboard — element
+  clicks and W3C touch taps both fail to focus; only programmatic `.focus()` works and it
+  raises no keyboard. Keyboard behaviour requires a human tap, on a device or in the
+  Simulator. Do not burn time rediscovering this.
+- `CLAUDE.md` carries the rule: Chromium emulation proves nothing about iOS Safari here.
 
 ## Next milestone
 
-Fix the keyboard/icon bug per HANDOFF-KEYBOARD-PIN.md, then a real-device pass over the whole mobile flow, then wire the signup form to an actual email backend (deliberately deferred all session).
+Whale's copy pass (items 1–2), then wire signup to a real email backend.
