@@ -4,3 +4,5 @@
 !favicon*
 
 .vercel/
+.env*.local
+node_modules/
