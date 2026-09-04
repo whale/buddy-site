@@ -472,7 +472,9 @@ p{text-wrap:pretty}
         <!-- hrefs are stamped in at runtime from the server's reply, so the
              download URLs aren't sitting in the page source. -->
         <div class="dl" hidden>
-          <a class="dlink" data-mac target="_blank" rel="noopener">Download for Mac</a>
+          <!-- no target=_blank: this one is a download, so it starts in place
+               rather than leaving an empty tab behind. -->
+          <a class="dlink" data-mac>Download for Mac</a>
           <a class="dlink" data-ios target="_blank" rel="noopener">Get it on iPhone</a>
         </div>
       </div>

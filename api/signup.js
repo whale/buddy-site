@@ -11,7 +11,9 @@ import crypto from 'node:crypto';
 // sitting in the HTML for anyone who opens dev tools. This is a courtesy gate,
 // not security: both URLs are public once handed out.
 
-const MAC = 'https://github.com/whale/buddy/releases/latest';
+// /api/mac resolves to the current .dmg and redirects, so the visitor gets a
+// real download rather than a GitHub page, and the link never goes stale.
+const MAC = '/api/mac';
 const IOS = 'https://testflight.apple.com/join/kj73T4xe';
 
 // Must start with a letter or digit. Beyond being true of real addresses, it
