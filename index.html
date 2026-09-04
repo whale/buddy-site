@@ -139,6 +139,17 @@ p{text-wrap:pretty}
 .ok{display:flex;align-items:center;gap:calc(12px*var(--s));font-size:calc(var(--body)*1px*var(--s));color:var(--dim)}
 .ok svg{width:calc(20px*var(--s));height:calc(20px*var(--s));color:#000}
 
+/* download links, revealed only after the server confirms the signup.
+   [hidden] is restated because display:flex would otherwise beat it. */
+.dl{display:flex;flex-wrap:wrap;gap:calc(20px*var(--s));margin-top:calc(20px*var(--s))}
+.dl[hidden]{display:none}
+.dlink{font-size:calc(var(--body)*1px*var(--s));color:#000;text-decoration:underline;
+  text-underline-offset:3px;transition:opacity .15s ease}
+.dlink:hover{opacity:.6}
+/* inline signup failure, in the same rhythm as the form above it */
+.ferr{margin-top:calc(14px*var(--s));font-size:calc(var(--body)*1px*var(--s));color:#b00020}
+.ferr[hidden]{display:none}
+
 /* gray arrow (Figma 95:8) pointing at the drawer's Add + row on slide 2.
    Position tracked per frame from the live addrow rect, so it rides the drawer
    slide-in, list re-renders, and resizes. Desktop only — hidden with the drawer
@@ -324,6 +335,8 @@ p{text-wrap:pretty}
   .mbody .form{margin-top:24px}
   .mbody .field,.mbody .btn{font-size:16px}
   .mbody .ok{font-size:19px}
+  .mbody .dlink,.mbody .ferr{font-size:19px}
+  .mbody .dl{gap:18px;margin-top:22px}
   /* interfaces match the text column width — no shadow, 1px grey stroke */
   .mcard{width:100%;margin:24px 0 0;border-radius:24px;overflow:hidden;border:1px solid #e5e5e5}
   .mcard .bcard{width:100% !important;border-radius:0}
@@ -445,15 +458,22 @@ p{text-wrap:pretty}
       </div>
       <div class="blk bd" data-i="5">
         <p>If this is your thing, sign up and I'll send you a beta invite. Want it sooner? Post about my side project <span class="tip" data-tip="Decaf coffee for people with too much going on. Yes, really.">Wimp Decaf</span> somewhere public and I'll bump you up the list. Bribery, but decaffeinated.</p>
-        <form class="form" onsubmit="event.preventDefault();window.__signup&&window.__signup()">
+        <form class="form" onsubmit="event.preventDefault();window.__submitSignup&&window.__submitSignup(this)">
           <input class="field" type="email" placeholder="Email address" required>
           <button class="btn" type="submit">Sign me up</button>
         </form>
+        <p class="ferr" role="alert" hidden></p>
       </div>
       <div class="blk bd" data-i="6">
         <div class="ok">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           You've been added to beta.
+        </div>
+        <!-- hrefs are stamped in at runtime from the server's reply, so the
+             download URLs aren't sitting in the page source. -->
+        <div class="dl" hidden>
+          <a class="dlink" data-mac target="_blank" rel="noopener">Download for Mac</a>
+          <a class="dlink" data-ios target="_blank" rel="noopener">Get it on iPhone</a>
         </div>
       </div>
     </div>
@@ -921,6 +941,57 @@ function signup(){
 }
 window.__signup=signup;
 
+/* ---- signup → server → download links -------------------------------------
+   The email goes to /api/signup, which stores it and replies with the two
+   download URLs. Only on a confirmed save do we celebrate; a failed save that
+   still played Boomski would tell the visitor they're on a list they aren't
+   on. Links are stamped into the confirmation block BEFORE the celebration so
+   mobile's clone of that block carries them. */
+function stampLinks(mac, ios){
+  const dl = document.querySelector('.blk[data-i="6"] .dl');
+  if(!dl) return;
+  const m = dl.querySelector('[data-mac]'), i = dl.querySelector('[data-ios]');
+  if(m) m.href = mac;
+  if(i) i.href = ios;
+  dl.hidden = false;
+}
+
+async function submitSignup(form){
+  if(state.signedUp) return;
+  const field = form.querySelector('.field');
+  const btn   = form.querySelector('button[type=submit]');
+  const err   = form.parentElement && form.parentElement.querySelector('.ferr');
+  const email = ((field && field.value) || '').trim();
+  const fail  = msg => { if(err){ err.textContent = msg; err.hidden = false; } };
+
+  if(err) err.hidden = true;
+  if(btn){ btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = 'One sec…'; }
+
+  try{
+    const res = await fetch('/api/signup', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json().catch(()=>({}));
+
+    if(!res.ok || !data.ok){
+      fail(data.error || "That didn't save. Try again in a moment?");
+      return;
+    }
+
+    stampLinks(data.mac, data.ios);
+    // Hand off to whichever celebration this viewport owns.
+    if(window.__mobileSignup) window.__mobileSignup();
+    else signup();
+  }catch(_){
+    fail("Couldn't reach the server. Check your connection and try again?");
+  }finally{
+    if(btn && !state.signedUp){ btn.disabled = false; btn.textContent = btn.dataset.label || 'Sign me up'; }
+  }
+}
+window.__submitSignup=submitSignup;
+
 function go(i){ scrollTo({top:Math.max(0,Math.min(NSCROLL-1,i))*innerHeight, behavior:'smooth'}); }
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(+b.dataset.go));
 
@@ -1150,7 +1221,11 @@ function buildMobile(){
     if(s.idx===SIGNUP_SLIDE){
       mKindaSec={sec,h,body};
       const form=body.querySelector('.form');
-      if(form) form.onsubmit=e=>{ e.preventDefault(); mobileSignup(mKindaSec, topIcon); };
+      // Same server round-trip as desktop; only the celebration differs.
+      if(form){
+        window.__mobileSignup=()=>mobileSignup(mKindaSec, topIcon);
+        form.onsubmit=e=>{ e.preventDefault(); submitSignup(form); };
+      }
       window.__mPin(form, form&&form.querySelector('.field'));   // focus-scoped icon pin + 24px keyboard gap
       if(state.signedUp) applyMobileBoomski(mKindaSec, topIcon, false);
     }

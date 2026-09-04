@@ -4,3 +4,4 @@
 !favicon*
 
 .vercel/
+.env*.local
