@@ -139,6 +139,11 @@ p{text-wrap:pretty}
 .ok{display:flex;align-items:center;gap:calc(12px*var(--s));font-size:calc(var(--body)*1px*var(--s));color:var(--dim)}
 .ok svg{width:calc(20px*var(--s));height:calc(20px*var(--s));color:#000}
 
+/* Wimp, in Wimp's orange. Bold so it carries at body size against the black. */
+.wimp{color:#ec5f1a;font-weight:700;text-decoration:underline;text-underline-offset:2px;
+  transition:opacity .15s ease}
+.wimp:hover{opacity:.7}
+
 /* download links, revealed only after the server confirms the signup.
    [hidden] is restated because display:flex would otherwise beat it. */
 .dl{display:flex;flex-wrap:wrap;gap:calc(20px*var(--s));margin-top:calc(20px*var(--s))}
@@ -457,7 +462,7 @@ p{text-wrap:pretty}
         <button class="btn" data-go="5">Okay, hide Buddy</button>
       </div>
       <div class="blk bd" data-i="5">
-        <p>If this is your thing, sign up and I'll send you a beta invite. Want it sooner? Post about my side project <span class="tip" data-tip="Decaf coffee for people with too much going on. Yes, really.">Wimp Decaf</span> somewhere public and I'll bump you up the list. Bribery, but decaffeinated.</p>
+        <p>If this is your thing, sign up and you can download the beta apps. By signing up you're also agreeing to my trick to sign you up for the newsletter of my little decaf company, <a class="wimp" href="https://wimpdecaf.com" target="_blank" rel="noopener">Wimp</a>! ha. Got ya!</p>
         <form class="form" onsubmit="event.preventDefault();window.__submitSignup&&window.__submitSignup(this)">
           <input class="field" type="email" placeholder="Email address" required>
           <button class="btn" type="submit">Sign me up</button>
@@ -467,15 +472,15 @@ p{text-wrap:pretty}
       <div class="blk bd" data-i="6">
         <div class="ok">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          You've been added to beta.
+          <span id="okMsg">Check your inbox to confirm, then Buddy's all yours.</span>
         </div>
-        <!-- hrefs are stamped in at runtime from the server's reply, so the
-             download URLs aren't sitting in the page source. -->
+        <!-- Shown only after the emailed link is clicked (?welcome=1), which is
+             where Ghost sends people once they confirm. -->
         <div class="dl" hidden>
           <!-- no target=_blank: this one is a download, so it starts in place
                rather than leaving an empty tab behind. -->
-          <a class="dlink" data-mac>Download for Mac</a>
-          <a class="dlink" data-ios target="_blank" rel="noopener">Get it on iPhone</a>
+          <a class="dlink" data-mac href="/api/mac">Download for Mac</a>
+          <a class="dlink" data-ios href="https://testflight.apple.com/join/kj73T4xe" target="_blank" rel="noopener">Get it on iPhone</a>
         </div>
       </div>
     </div>
@@ -949,13 +954,17 @@ window.__signup=signup;
    still played Boomski would tell the visitor they're on a list they aren't
    on. Links are stamped into the confirmation block BEFORE the celebration so
    mobile's clone of that block carries them. */
-function stampLinks(mac, ios){
-  const dl = document.querySelector('.blk[data-i="6"] .dl');
-  if(!dl) return;
-  const m = dl.querySelector('[data-mac]'), i = dl.querySelector('[data-ios]');
-  if(m) m.href = mac;
-  if(i) i.href = ios;
-  dl.hidden = false;
+/* The confirmation panel has two faces. Straight after signing up it says
+   "check your inbox", because nothing has been confirmed yet. Arriving back
+   from the emailed link (?welcome=1) it shows the downloads instead. */
+function showDownloads(){
+  // .bd matters: the heading carries data-i="6" too and comes first in the DOM.
+  const blk = document.querySelector('.blk.bd[data-i="6"]');
+  if(!blk) return;
+  const msg = blk.querySelector('#okMsg');
+  if(msg) msg.textContent = "You're in. Here's Buddy.";
+  const dl = blk.querySelector('.dl');
+  if(dl) dl.hidden = false;
 }
 
 async function submitSignup(form){
@@ -978,11 +987,11 @@ async function submitSignup(form){
     const data = await res.json().catch(()=>({}));
 
     if(!res.ok || !data.ok){
-      fail(data.error || "That didn't save. Try again in a moment?");
+      fail(data.error || "That didn't send. Try again in a moment?");
       return;
     }
 
-    stampLinks(data.mac, data.ios);
+    // No links yet: they arrive after the emailed link is clicked.
     // Hand off to whichever celebration this viewport owns.
     if(window.__mobileSignup) window.__mobileSignup();
     else signup();
@@ -1339,6 +1348,14 @@ function boot(){
 }
 document.fonts.ready.then(()=>{ anchor(); if(shown<0) onScrollPos(); });
 boot();
+
+/* Back from the confirmation email. Ghost sends people here, so skip the story
+   and go straight to the payoff. showDownloads() runs FIRST because mobile's
+   celebration clones this block, and the clone should carry the links. */
+if(new URLSearchParams(location.search).get('welcome')==='1'){
+  showDownloads();
+  if(window.__mobileSignup) window.__mobileSignup(); else signup();
+}
 
 /* ===================== TYPE TUNING PANEL ===================== */
 const TUNE={ c_h1:['--h1','px'], c_h1lh:['--h1lh',''], c_body:['--body','px'], c_bodylh:['--bodylh',''],

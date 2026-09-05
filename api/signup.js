@@ -1,25 +1,19 @@
-import { put } from '@vercel/blob';
-import crypto from 'node:crypto';
-
-// Trade an email address for the download links.
+// Hand the address to Ghost, which emails a confirmation link.
 //
-// One blob per signup rather than one appended file: serverless calls can
-// overlap, and a read-modify-write append would silently drop rows when two
-// people submit at the same moment. Separate keys can't race.
+// This is Ghost's own Portal signup, the same call its signup form makes. The
+// member is NOT created here: Ghost only creates them when they click the link
+// in the email. That is the whole point. A made-up address gets nothing, so the
+// list cannot fill with addresses nobody reads, and we need no bot traps or
+// rate limits to keep it clean.
 //
-// The links live here, on the server, not in the page source — so they aren't
-// sitting in the HTML for anyone who opens dev tools. This is a courtesy gate,
-// not security: both URLs are public once handed out.
+// Clicking the link lands them on the newsletter's welcome page, which is where
+// the download links live. See the welcome_page_url on the Buddy newsletter.
 
-// /api/mac resolves to the current .dmg and redirects, so the visitor gets a
-// real download rather than a GitHub page, and the link never goes stale.
-const MAC = '/api/mac';
-const IOS = 'https://testflight.apple.com/join/kj73T4xe';
+const SITE = 'https://www.whale.fyi';
+const BUDDY_NEWSLETTER_ID = '6a9b7545457a8d000154d85b';
 
-// Must start with a letter or digit. Beyond being true of real addresses, it
-// keeps = + - @ out of the first character, so a stored address can never be
-// read as a spreadsheet formula later. The CSV export escapes these too; this
-// is the second lock on the same door.
+// Must start with a letter or digit, so a stored address can never be read as a
+// spreadsheet formula if this list is ever exported.
 const EMAIL = /^[a-z0-9][^@\s]*@[a-z0-9][^@\s]*\.[a-z]{2,}$/i;
 
 export default async function handler(req, res) {
@@ -41,36 +35,49 @@ export default async function handler(req, res) {
   }
 
   try {
-    // The page deliberately replays its whole story on every refresh, so the
-    // same person can submit many times. Naming the record after the address
-    // (hashed, so no address appears in a filename) makes a repeat overwrite
-    // itself instead of adding another row.
-    const id = crypto.createHash('sha256').update(email).digest('hex').slice(0, 32);
+    // Ghost wants a short-lived token with the signup, to make the endpoint
+    // costly to abuse. Fetch one per request; they are not reusable for long.
+    const tokenRes = await fetch(`${SITE}/members/api/integrity-token/`);
+    if (!tokenRes.ok) throw new Error(`integrity-token ${tokenRes.status}`);
+    const integrityToken = (await tokenRes.text()).trim();
 
-    await put(
-      `signups/${id}.json`,
-      JSON.stringify({
+    const r = await fetch(`${SITE}/members/api/send-magic-link/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         email,
-        at: new Date().toISOString(),
-        // Vercel's own geo/UA headers. Useful later, never required.
-        country: req.headers['x-vercel-ip-country'] || null,
-        ua: req.headers['user-agent'] || null
-      }),
-      {
-        access: 'private',
-        contentType: 'application/json',
-        addRandomSuffix: false,
-        allowOverwrite: true
+        emailType: 'signup',
+        integrityToken,
+        // Where the emailed link drops them: back here, on the panel that
+        // shows the downloads. Ghost accepts this cross-subdomain target.
+        redirect: 'https://buddy.whale.fyi/?welcome=1',
+        // Explicit, because another newsletter on this site is set to
+        // subscribe-on-signup. Without naming ours, Buddy testers would also
+        // land on Matthew's personal list.
+        newsletters: [{ id: BUDDY_NEWSLETTER_ID }],
+        labels: ['buddy']
+      })
+    });
+
+    if (!r.ok) {
+      const detail = await r.text();
+      console.error('signup: send-magic-link', r.status, detail.slice(0, 300));
+      // 429 is Ghost's own rate limiter, which is a real answer, not a fault.
+      if (r.status === 429) {
+        return res.status(429).json({
+          ok: false,
+          error: "That's a lot of tries. Give it a few minutes and go again?"
+        });
       }
-    );
+      throw new Error(`send-magic-link ${r.status}`);
+    }
   } catch (err) {
-    // Log the real reason for us; tell the visitor something specific and true.
-    console.error('signup: blob write failed', err);
+    console.error('signup: failed', err);
     return res.status(500).json({
       ok: false,
-      error: "We couldn't save that just now. Try again in a moment?"
+      error: "We couldn't send that just now. Try again in a moment?"
     });
   }
 
-  return res.status(200).json({ ok: true, mac: MAC, ios: IOS });
+  return res.status(200).json({ ok: true });
 }
