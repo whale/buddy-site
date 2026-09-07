@@ -1,6 +1,6 @@
 # buddy-site — Status
 
-Updated: 2026-09-05. Branch `main`, latest commit `ef44b57`. Tree clean, no open PRs.
+Updated: 2026-09-07. Latest commit: see git. Tree clean, no open PRs.
 Live: https://buddy.whale.fyi (Vercel, deploys on merge to `main`).
 
 ## What the site is
@@ -28,6 +28,13 @@ This session (2026-09-05):
   and the dare (PRs #35, #36).
 - Share image added at `assets/og.png` (2400×1260) with `og:image`, `og:url`, `og:type`,
   `og:image:alt`, and Twitter `summary_large_image` tags (PR #37).
+
+2026-09-07:
+- Download links now appear right after a successful signup, with a nudge to confirm
+  the newsletter. Before, they only appeared when the emailed link brought people back
+  (`?welcome=1`, still supported). Stopgap until a drip sequence exists on the Whale
+  site. Verified in the browser at 1400px and 375px against a stubbed `/api/signup`;
+  not tested live with a real address.
 
 ## Verified 2026-09-05 on the live site
 

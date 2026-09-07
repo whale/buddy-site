@@ -6,8 +6,8 @@
 // list cannot fill with addresses nobody reads, and we need no bot traps or
 // rate limits to keep it clean.
 //
-// Clicking the link lands them on the newsletter's welcome page, which is where
-// the download links live. See the welcome_page_url on the Buddy newsletter.
+// The site hands over the download links as soon as this call succeeds; the
+// emailed link brings them back to the same panel (?welcome=1).
 
 const SITE = 'https://www.whale.fyi';
 const BUDDY_NEWSLETTER_ID = '6a9b7545457a8d000154d85b';

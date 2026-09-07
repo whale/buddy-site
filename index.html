@@ -152,7 +152,7 @@ p{text-wrap:pretty}
   transition:opacity .15s ease}
 .wimp:hover{opacity:.7}
 
-/* download links, revealed only after the server confirms the signup.
+/* download links, revealed once the server accepts the signup.
    [hidden] is restated because display:flex would otherwise beat it. */
 .dl{display:flex;flex-wrap:wrap;gap:calc(20px*var(--s));margin-top:calc(20px*var(--s))}
 .dl[hidden]{display:none}
@@ -482,8 +482,8 @@ p{text-wrap:pretty}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           <span id="okMsg">Check your inbox to confirm, then Buddy's all yours.</span>
         </div>
-        <!-- Shown only after the emailed link is clicked (?welcome=1), which is
-             where Ghost sends people once they confirm. -->
+        <!-- Revealed by showDownloads(): right after a successful signup, and
+             again when the emailed link brings them back (?welcome=1). -->
         <div class="dl" hidden>
           <!-- no target=_blank: this one is a download, so it starts in place
                rather than leaving an empty tab behind. -->
@@ -962,15 +962,17 @@ window.__signup=signup;
    still played Boomski would tell the visitor they're on a list they aren't
    on. Links are stamped into the confirmation block BEFORE the celebration so
    mobile's clone of that block carries them. */
-/* The confirmation panel has two faces. Straight after signing up it says
-   "check your inbox", because nothing has been confirmed yet. Arriving back
-   from the emailed link (?welcome=1) it shows the downloads instead. */
-function showDownloads(){
+/* The confirmation panel has two faces, and both show the downloads. Straight
+   after signing up it hands over the links and nudges them to confirm the
+   newsletter. Arriving back from the emailed link (?welcome=1) it just says
+   they're in. Until a drip sequence exists on the Whale site, the links have to
+   live here, not in the email. */
+function showDownloads(text){
   // .bd matters: the heading carries data-i="6" too and comes first in the DOM.
   const blk = document.querySelector('.blk.bd[data-i="6"]');
   if(!blk) return;
   const msg = blk.querySelector('#okMsg');
-  if(msg) msg.textContent = "You're in. Here's Buddy.";
+  if(msg) msg.textContent = text;
   const dl = blk.querySelector('.dl');
   if(dl) dl.hidden = false;
 }
@@ -999,8 +1001,9 @@ async function submitSignup(form){
       return;
     }
 
-    // No links yet: they arrive after the emailed link is clicked.
-    // Hand off to whichever celebration this viewport owns.
+    // Links first, celebration second: mobile's celebration clones the
+    // confirmation block, and the clone should carry the links.
+    showDownloads("Here's Buddy. Check your inbox to confirm the newsletter, too.");
     if(window.__mobileSignup) window.__mobileSignup();
     else signup();
   }catch(_){
@@ -1361,7 +1364,7 @@ boot();
    and go straight to the payoff. showDownloads() runs FIRST because mobile's
    celebration clones this block, and the clone should carry the links. */
 if(new URLSearchParams(location.search).get('welcome')==='1'){
-  showDownloads();
+  showDownloads("You're in. Here's Buddy.");
   if(window.__mobileSignup) window.__mobileSignup(); else signup();
 }
 
