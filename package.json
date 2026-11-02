@@ -4,5 +4,8 @@
   "description": "Kuma / Buddy landing page. The page itself has no build step; this file exists only so Vercel installs the one dependency the signup function needs.",
   "dependencies": {
     "@vercel/blob": "^2.8.0"
+  },
+  "overrides": {
+    "zod": "^4.6.7"
   }
 }
