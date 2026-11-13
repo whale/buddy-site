@@ -232,7 +232,7 @@ Keep the current site's structure and interactions. Change:
 ## 10. Cross-references
 
 - Site code + this plan: `whale/buddy-site` (rename candidate: `wimp/kuma-site`).
-- WIMP strategy + business model: `~/Projects/wimp-decaf`.
-- Kuma mascot / existing character: `~/Projects/wimp-stickers` (`wimpdecaf/stickers`).
+- WIMP strategy + business model: `~/Projects/wimp/content`.
+- Kuma mascot / existing character: `~/Projects/wimp/stickers` (`wimpdecaf/stickers`).
 - The real app (source of truth for the drawer): `~/Projects/buddy` (`whale/buddy`).
 - Prior Ghost integration research: whale.fyi Admin API (this session).

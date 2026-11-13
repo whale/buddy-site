@@ -5,4 +5,5 @@
 
 .vercel/
 .env*.local
+!.env.op
 node_modules/
